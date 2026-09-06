@@ -12,6 +12,7 @@ paths:
   configs: configs
   rulebook: configs/rulebook
   data: data
+  seed_data: data/seed
   refs: refs/circulars
   experiments: experiments
   artifacts: data/artifacts
