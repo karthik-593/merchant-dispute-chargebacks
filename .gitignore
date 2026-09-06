@@ -11,6 +11,7 @@ dist/
 # Environments
 .venv/
 .env
+.uv-cache/
 
 # Data (DVC-tracked; the pointers are committed, the contents are not)
 /data/*

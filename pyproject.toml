@@ -21,6 +21,9 @@ dev = [
 # Build environments from uv-managed interpreters only, so the project never
 # picks up a local Anaconda/system Python and stays reproducible across machines.
 python-preference = "only-managed"
+# Keep the cache on the same filesystem as .venv so uv can hardlink instead of
+# copying every wheel. Machine-local build artifact — git-ignored, never committed.
+cache-dir = ".uv-cache"
 
 [build-system]
 requires = ["hatchling"]
