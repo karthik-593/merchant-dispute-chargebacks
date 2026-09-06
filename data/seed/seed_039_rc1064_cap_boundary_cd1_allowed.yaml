@@ -1,0 +1,51 @@
+case_id: seed_039
+version: seed-v1
+hard_case_class: CAPPED
+narrative: The customer has raised nine chargebacks from this account in the last thirty days, so this
+  tenth one is the last the cap allows. It is within the limit, so the claim is decided on its evidence
+  like any other.
+dispute:
+  dispute_id: DSP-2026-0039
+  txn_id: TXN000000000039
+  rrn: '100000000039'
+  tran_id: TRN000000039
+  cust_ref: '200000000039'
+  amount: '1499.00'
+  payer_vpa: payer039@okbank
+  payee_vpa: merchant039@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000039'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  acquiring_psp: null
+  beneficiary_bank: null
+  txn_timestamp: '2026-02-14T15:15:00'
+  reason_code: RC_1064
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-02-16'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 9
+  chargeback_count_vpa_pair: 2
+evidence:
+- evidence_id: EV-0039-1
+  dispute_id: DSP-2026-0039
+  type: invoice_with_proof_of_delivery
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Tax invoice INV-90114 for the disputed amount with a courier POD signed by the customer
+    at the registered address, carrying the disputed RRN.
+  is_valid: true
+  validity_note: Invoice amount, date and RRN match the disputed transaction; the POD is legible and signed
+    by the named customer.
+ground_truth:
+  expected_reason_code: RC_1064
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: Nine chargebacks stand against this IFSC and account number in the rolling thirty-day window,
+    so this tenth is the last one the cap allows. The CD1 decline fires on the eleventh, not the tenth,
+    so the caps gate does not trigger here and the case is decided on its evidence — a signed proof of
+    delivery matched to the disputed transaction, which is an accepted type for RC 1064.
+  source_rule: OC 184 (CD1 cap, 10 per customer per 30 days); OC 208 §C (RC 1064 evidence table)

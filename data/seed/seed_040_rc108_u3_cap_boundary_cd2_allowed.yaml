@@ -1,0 +1,52 @@
+case_id: seed_040
+version: seed-v1
+hard_case_class: CAPPED
+narrative: This payer-payee VPA pair has produced four chargebacks this month, so the fifth is the last
+  the pair cap allows. The remitter says the transfer never landed, but the beneficiary bank can show
+  the credit posted.
+dispute:
+  dispute_id: DSP-2026-0040
+  txn_id: TXN000000000040
+  rrn: '100000000040'
+  tran_id: TRN000000040
+  cust_ref: '200000000040'
+  amount: '2200.00'
+  payer_vpa: payer040@okbank
+  payee_vpa: payee040@okbank
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000040'
+  payee_merchant_id: null
+  mcc: null
+  acquiring_psp: null
+  beneficiary_bank: null
+  txn_timestamp: '2026-03-15T16:15:00'
+  reason_code: RC_108
+  txn_sub_type: U3
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-03-17'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 3
+  chargeback_count_vpa_pair: 4
+evidence:
+- evidence_id: EV-0040-1
+  dispute_id: DSP-2026-0040
+  type: cbs_screenshot_credit_beneficiary
+  source: beneficiary bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract showing the credit posted to the beneficiary account for the disputed RRN and
+    amount, with the running balance and value date visible.
+  is_valid: true
+  validity_note: Legible extract showing the beneficiary account number, RRN, amount and value date; it
+    establishes that the credit was in fact posted.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: Four chargebacks stand against this payer-payee VPA pair in the rolling thirty-day window,
+    so this fifth is the last one the cap allows. CD2 declines the sixth, not the fifth, so the caps gate
+    does not fire and the case turns on its evidence — a legible CBS extract showing the credit was posted,
+    which is the accepted type for P2P RC 108.
+  source_rule: OC 184 (CD2 cap, 5 per payer-payee VPA pair per 30 days); OC 208 §C (RC 108 U3/UC evidence
+    table)

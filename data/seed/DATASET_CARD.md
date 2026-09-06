@@ -27,8 +27,8 @@ in a diff.
 
 ## Size and shape
 
-**38 cases**, one YAML file each, named `seed_<n>_<reason-code>_<what-it-tests>.yaml`.
-35 evidence artifacts in total (27 hand-labelled valid, 8 invalid); 9 cases carry no evidence at
+**40 cases**, one YAML file each, named `seed_<n>_<reason-code>_<what-it-tests>.yaml`.
+37 evidence artifacts in total (29 hand-labelled valid, 8 invalid); 9 cases carry no evidence at
 all, which is itself the condition under test.
 
 Each file holds a `case_id`, the `seed-v1` version tag, a `hard_case_class`, a plain-language
@@ -45,14 +45,14 @@ entries are exercised.**
 | `RC_1061` | RC 1061 | U2 | 3 |
 | `RC_1062` | RC 1062 | U2 | 2 |
 | `RC_1063` | RC 1063 | U2 | 2 |
-| `RC_1064` | RC 1064 | U2 | 6 |
+| `RC_1064` | RC 1064 | U2 | 7 |
 | `RC_1065` | RC 1065 | U2 | 4 |
 | `RC_108_U2` | RC 108 | U2 | 6 |
 | `RC_1081` | RC 1081 | U2 | 2 |
 | `RC_1084` | RC 1084 | U2 | 2 |
 | `RC_1085` | RC 1085 | U2 | 4 |
 | `RC_121_U2` | RC 121 | U2 | 2 |
-| `RC_108_U3` | RC 108 | U3 / UC | 3 |
+| `RC_108_U3` | RC 108 | U3 / UC | 4 |
 | `RC_121_U3` | RC 121 | U3 / UC | 2 |
 
 ### By hard-case class
@@ -67,19 +67,19 @@ entries are exercised.**
 | `FABRICATION_TEMPTING` | 3 | Narrative invites asserting an artifact that does not exist |
 | `IRRELEVANT` | 3 | Genuine, legible artifacts of a type the reason code does not accept |
 | `SMALL_OFFLINE` | 3 | The acquirer declaration-letter substitution, including its negative case |
-| `CAPPED` | 3 | CD1 and CD2 chargeback caps, plus the fraud exemption from them |
+| `CAPPED` | 5 | CD1 and CD2 chargeback caps on both sides of the boundary, plus the fraud exemption from them |
 | `DEEMED_APPROVAL_P2M` | 3 | Acquiring PSP = merchant bank, so delivery is presumed and must be rebutted — plus the contrast where the two institutions differ |
 
 ### By ground truth
 
 | Sufficiency | Cases | Decision | Cases |
 |---|---|---|---|
-| `STRONG` | 17 | `FILE` | 11 |
+| `STRONG` | 19 | `FILE` | 13 |
 | `WEAK` | 8 | `CONCEDE` | 21 |
 | `ABSENT` | 13 | `ESCALATE` | 4 |
 | | | `RGNB` | 2 |
 
-Other splits: 33 P2M (U2), 3 U3 and 2 UC (P2P); 36 large merchants and 2 small/offline.
+Other splits: 34 P2M (U2), 4 U3 and 2 UC (P2P); 38 large merchants and 2 small/offline.
 
 ## Ground-truth methodology
 
@@ -123,6 +123,20 @@ Ordering matters and the fixtures encode it: the **caps gate runs before the evi
 which is why two cases carry `STRONG` evidence and still resolve to `RGNB`. Fraud transactions are
 exempt from the caps, so one case sits far above both limits and still decides on its evidence.
 
+**The cap boundary is pinned from both sides.** An off-by-one in the gate is the easy mistake to
+make, so each cap has a pair of cases differing only in the count:
+
+| Case | Cap | `chargeback_count_ifsc_acct` | `chargeback_count_vpa_pair` | Decision |
+|---|---|---|---|---|
+| `seed_039` | CD1 | **9** — the tenth is the last allowed | 2 | `FILE` |
+| `seed_033` | CD1 | **10** — the eleventh is declined | 2 | `RGNB` |
+| `seed_040` | CD2 | 3 | **4** — the fifth is the last allowed | `FILE` |
+| `seed_034` | CD2 | 3 | **5** — the sixth is declined | `RGNB` |
+
+All four carry `STRONG` evidence, so the decision turns on the count alone. A gate that fires one
+chargeback early sends `seed_039` or `seed_040` to `RGNB` and fails; one that fires one late sends
+`seed_033` or `seed_034` to `FILE` and fails.
+
 ### Evidence validity labels
 
 Each artifact carries `is_valid` plus a `validity_note` saying why. `is_valid: false` never means
@@ -141,7 +155,7 @@ with the balance still disputed.
 - **Sanity check for the synthetic generator.** When the DGP arrives, its output should reproduce
   the behaviour these cases describe. A generator that cannot produce this distribution of hard
   cases — or that disagrees with these labels — is wrong.
-- **Not a training set and not a benchmark.** 38 cases is far too few, and the distribution is
+- **Not a training set and not a benchmark.** 40 cases is far too few, and the distribution is
   deliberately weighted toward adversarial conditions. The `CONCEDE`-heavy split reflects that
   weighting, **not** any real-world base rate. Nothing here should be read as a measurement of how
   often disputes are winnable.
