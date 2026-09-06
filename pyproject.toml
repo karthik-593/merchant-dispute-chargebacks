@@ -17,6 +17,11 @@ dev = [
     "ruff>=0.5",
 ]
 
+[tool.uv]
+# Build environments from uv-managed interpreters only, so the project never
+# picks up a local Anaconda/system Python and stays reproducible across machines.
+python-preference = "only-managed"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
