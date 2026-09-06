@@ -13,7 +13,6 @@ paths:
   rulebook: configs/rulebook
   data: data
   refs: refs/circulars
-  docs: docs
   experiments: experiments
   artifacts: data/artifacts
 
