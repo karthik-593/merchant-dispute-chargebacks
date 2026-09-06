@@ -90,6 +90,8 @@ class DisputeRecord(BaseModel):
     payer_account: str = Field(min_length=1)
     payee_merchant_id: str | None = None
     mcc: str | None = None
+    acquiring_psp: str | None = None
+    beneficiary_bank: str | None = None
     txn_timestamp: datetime
     reason_code: str
     txn_sub_type: TxnSubType
@@ -100,6 +102,20 @@ class DisputeRecord(BaseModel):
     fraud_flag: bool = False
     chargeback_count_ifsc_acct: int = Field(ge=0, description="rolling 30-day count, CD1 gate")
     chargeback_count_vpa_pair: int = Field(ge=0, description="rolling 30-day count, CD2 gate")
+
+    @property
+    def acquiring_psp_is_merchant_bank(self) -> bool:
+        """Whether the acquiring PSP and the merchant's bank are the same institution.
+
+        True only for a P2M transaction where both identifiers are set and equal. False when
+        either is unset, when they differ, or when the transaction is not P2M. Derived, never
+        stored: the seed files carry the two identifiers and this reads the condition off them.
+        """
+        if self.txn_sub_type is not TxnSubType.U2:
+            return False
+        if self.acquiring_psp is None or self.beneficiary_bank is None:
+            return False
+        return self.acquiring_psp == self.beneficiary_bank
 
     @field_validator("reason_code")
     @classmethod

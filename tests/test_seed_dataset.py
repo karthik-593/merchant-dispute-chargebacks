@@ -14,6 +14,7 @@ from src.data.rulebook_vocab import (
 from src.data.schemas import (
     SEED_VERSION,
     Decision,
+    DisputeRecord,
     HardCaseClass,
     MerchantType,
     Sufficiency,
@@ -139,3 +140,56 @@ def test_absent_cases_carry_no_valid_accepted_evidence(cases):
         assert not offending, (
             f"{case.case_id} is labelled ABSENT but holds valid accepted evidence {offending}"
         )
+
+
+# Cases where the acquiring PSP and the merchant bank are one institution, so the
+# deemed-approval presumption of delivery applies.
+DEEMED_APPROVAL_MATCHING = {"seed_036", "seed_037"}
+# The contrast: same P2M shape, two different institutions, so no presumption arises.
+DEEMED_APPROVAL_CONTRAST = {"seed_038"}
+
+
+def test_deemed_approval_condition_is_true_where_institutions_match(cases):
+    by_id = {c.case_id: c for c in cases}
+    assert set(by_id) >= DEEMED_APPROVAL_MATCHING, "expected deemed-approval cases are missing"
+    for case_id in sorted(DEEMED_APPROVAL_MATCHING):
+        dispute = by_id[case_id].dispute
+        assert dispute.txn_sub_type is TxnSubType.U2, case_id
+        assert dispute.acquiring_psp == dispute.beneficiary_bank, case_id
+        assert dispute.acquiring_psp_is_merchant_bank is True, case_id
+
+
+def test_deemed_approval_condition_is_false_for_the_contrast_case(cases):
+    by_id = {c.case_id: c for c in cases}
+    assert set(by_id) >= DEEMED_APPROVAL_CONTRAST, "expected contrast case is missing"
+    for case_id in sorted(DEEMED_APPROVAL_CONTRAST):
+        dispute = by_id[case_id].dispute
+        assert dispute.txn_sub_type is TxnSubType.U2, case_id
+        assert dispute.acquiring_psp is not None and dispute.beneficiary_bank is not None, case_id
+        assert dispute.acquiring_psp != dispute.beneficiary_bank, case_id
+        assert dispute.acquiring_psp_is_merchant_bank is False, case_id
+
+
+def test_deemed_approval_condition_is_false_when_fields_are_unset(cases):
+    unset = [
+        case
+        for case in cases
+        if case.dispute.acquiring_psp is None and case.dispute.beneficiary_bank is None
+    ]
+    assert unset, "expected most cases to leave the institution fields unset"
+    for case in unset:
+        assert case.dispute.acquiring_psp_is_merchant_bank is False, case.case_id
+
+
+def test_deemed_approval_condition_is_false_for_p2p_even_if_institutions_match(cases):
+    p2p = next(c for c in cases if c.dispute.txn_sub_type is not TxnSubType.U2)
+    same_bank = p2p.dispute.model_copy(
+        update={"acquiring_psp": "Same Bank Ltd", "beneficiary_bank": "Same Bank Ltd"}
+    )
+    assert same_bank.acquiring_psp_is_merchant_bank is False
+
+
+def test_deemed_approval_condition_is_derived_not_stored():
+    assert "acquiring_psp_is_merchant_bank" not in DisputeRecord.model_fields
+    for field in ("acquiring_psp", "beneficiary_bank"):
+        assert field in DisputeRecord.model_fields

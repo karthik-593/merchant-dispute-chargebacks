@@ -27,8 +27,8 @@ in a diff.
 
 ## Size and shape
 
-**37 cases**, one YAML file each, named `seed_<n>_<reason-code>_<what-it-tests>.yaml`.
-34 evidence artifacts in total (26 hand-labelled valid, 8 invalid); 9 cases carry no evidence at
+**38 cases**, one YAML file each, named `seed_<n>_<reason-code>_<what-it-tests>.yaml`.
+35 evidence artifacts in total (27 hand-labelled valid, 8 invalid); 9 cases carry no evidence at
 all, which is itself the condition under test.
 
 Each file holds a `case_id`, the `seed-v1` version tag, a `hard_case_class`, a plain-language
@@ -47,7 +47,7 @@ entries are exercised.**
 | `RC_1063` | RC 1063 | U2 | 2 |
 | `RC_1064` | RC 1064 | U2 | 6 |
 | `RC_1065` | RC 1065 | U2 | 4 |
-| `RC_108_U2` | RC 108 | U2 | 5 |
+| `RC_108_U2` | RC 108 | U2 | 6 |
 | `RC_1081` | RC 1081 | U2 | 2 |
 | `RC_1084` | RC 1084 | U2 | 2 |
 | `RC_1085` | RC 1085 | U2 | 4 |
@@ -68,18 +68,18 @@ entries are exercised.**
 | `IRRELEVANT` | 3 | Genuine, legible artifacts of a type the reason code does not accept |
 | `SMALL_OFFLINE` | 3 | The acquirer declaration-letter substitution, including its negative case |
 | `CAPPED` | 3 | CD1 and CD2 chargeback caps, plus the fraud exemption from them |
-| `DEEMED_APPROVAL_P2M` | 2 | Acquiring PSP = merchant bank, so delivery is presumed and must be rebutted |
+| `DEEMED_APPROVAL_P2M` | 3 | Acquiring PSP = merchant bank, so delivery is presumed and must be rebutted — plus the contrast where the two institutions differ |
 
 ### By ground truth
 
 | Sufficiency | Cases | Decision | Cases |
 |---|---|---|---|
-| `STRONG` | 16 | `FILE` | 10 |
+| `STRONG` | 17 | `FILE` | 11 |
 | `WEAK` | 8 | `CONCEDE` | 21 |
 | `ABSENT` | 13 | `ESCALATE` | 4 |
 | | | `RGNB` | 2 |
 
-Other splits: 32 P2M (U2), 3 U3 and 2 UC (P2P); 35 large merchants and 2 small/offline.
+Other splits: 33 P2M (U2), 3 U3 and 2 UC (P2P); 36 large merchants and 2 small/offline.
 
 ## Ground-truth methodology
 
@@ -141,16 +141,20 @@ with the balance still disputed.
 - **Sanity check for the synthetic generator.** When the DGP arrives, its output should reproduce
   the behaviour these cases describe. A generator that cannot produce this distribution of hard
   cases — or that disagrees with these labels — is wrong.
-- **Not a training set and not a benchmark.** 37 cases is far too few, and the distribution is
+- **Not a training set and not a benchmark.** 38 cases is far too few, and the distribution is
   deliberately weighted toward adversarial conditions. The `CONCEDE`-heavy split reflects that
   weighting, **not** any real-world base rate. Nothing here should be read as a measurement of how
   often disputes are winnable.
 
 ## Known limitations
 
-- The record has no field marking *acquiring PSP = merchant bank*, so the deemed-approval
-  condition is carried by `hard_case_class` and the narrative rather than structurally. A field
-  should be added when the generator is built.
+- Deemed approval is now represented **structurally**, not only through `hard_case_class` and the
+  narrative. `DisputeRecord` carries optional `acquiring_psp` and `beneficiary_bank` identifiers,
+  and the derived property `acquiring_psp_is_merchant_bank` reads the condition off them: true
+  only for a P2M transaction where both are set and equal. It is computed, never stored, so the
+  fixtures cannot assert a condition their own identifiers contradict. Three cases exercise it —
+  two where the institutions match and one contrast where they differ — and the remaining 35
+  leave both fields unset, which reads as false.
 - Sufficiency labels fold in validity judgements. Once the L0 engine and the validity verifier are
   separate running components, it may be worth splitting the label into a deterministic
   type-presence result and a separate validity verdict.

@@ -16,6 +16,8 @@ dispute:
   payer_account: '501000000037'
   payee_merchant_id: MID00000042
   mcc: '5651'
+  acquiring_psp: HDFC Bank Ltd
+  beneficiary_bank: HDFC Bank Ltd
   txn_timestamp: '2026-06-11T10:15:00'
   reason_code: RC_108
   txn_sub_type: U2

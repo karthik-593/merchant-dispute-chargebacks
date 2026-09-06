@@ -1,0 +1,51 @@
+case_id: seed_038
+version: seed-v1
+hard_case_class: DEEMED_APPROVAL_P2M
+narrative: Customer was debited and says the merchant was never credited. Here the acquiring PSP and the
+  merchant's bank are two different institutions, so nothing was returned to the merchant as SUCCESS and
+  no delivery presumption arises — the case rests on its evidence.
+dispute:
+  dispute_id: DSP-2026-0038
+  txn_id: TXN000000000038
+  rrn: '100000000038'
+  tran_id: TRN000000038
+  cust_ref: '200000000038'
+  amount: '1250.00'
+  payer_vpa: payer038@okbank
+  payee_vpa: merchant038@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000038'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  acquiring_psp: Axis Bank Ltd
+  beneficiary_bank: Kotak Mahindra Bank Ltd
+  txn_timestamp: '2026-07-12T15:15:00'
+  reason_code: RC_108
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-07-13'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0038-1
+  dispute_id: DSP-2026-0038
+  type: cbs_screenshot_credit_merchant
+  source: acquiring bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract from the acquiring bank showing the credit posted to the merchant's account
+    at a different bank, against the disputed RRN and amount.
+  is_valid: true
+  validity_note: Legible, shows account, RRN, amount and value date, and covers the disputed transaction.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: The acquiring PSP and the merchant bank are different institutions, so the deemed-approval
+    presumption of delivery does not arise and nothing is presumed in the merchant's favour. The case
+    is decided purely on the evidence, and a valid CBS credit screenshot is an accepted type for RC 108
+    (P2M).
+  source_rule: OC 39A (deemed approval applies only where acquiring PSP = merchant bank); OC 208 §C (RC
+    108 U2 evidence table)
