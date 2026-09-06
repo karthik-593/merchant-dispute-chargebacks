@@ -1,0 +1,45 @@
+case_id: seed_013
+version: seed-v1
+hard_case_class: WEAK
+narrative: Customer says they had already paid the merchant in cash and the UPI debit was a second charge.
+  The merchant replies with a one-line assertion that no other payment was received.
+dispute:
+  dispute_id: DSP-2026-0013
+  txn_id: TXN000000000013
+  rrn: '100000000013'
+  tran_id: TRN000000013
+  cust_ref: '200000000013'
+  amount: '1499.00'
+  payer_vpa: payer013@okbank
+  payee_vpa: merchant013@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000013'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-06-14T13:15:00'
+  reason_code: RC_1063
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-06-15'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0013-1
+  dispute_id: DSP-2026-0013
+  type: proof_payment_not_received_other
+  source: merchant email
+  timestamp: '2026-03-10T11:00:00'
+  description: Email from the merchant stating 'no cash payment was received for this order', with no
+    ledger extract, receipt or till record attached.
+  is_valid: false
+  validity_note: A generic statement with no supporting record — an enumerated invalid reason.
+ground_truth:
+  expected_reason_code: RC_1063
+  expected_sufficiency: WEAK
+  expected_decision: CONCEDE
+  rationale: The evidence type is accepted for RC 1063, but a bare generic statement carries no probative
+    weight and is listed as an invalid reason, so the representment would fail.
+  source_rule: OC 208 §C (RC 1063 evidence table); OC 208A Annexure A (generic statements)

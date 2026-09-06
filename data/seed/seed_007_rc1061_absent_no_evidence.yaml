@@ -1,0 +1,37 @@
+case_id: seed_007
+version: seed-v1
+hard_case_class: ABSENT
+narrative: Customer cancelled an order within the cancellation window and says no refund ever came. The
+  merchant has submitted nothing at all.
+dispute:
+  dispute_id: DSP-2026-0007
+  txn_id: TXN000000000007
+  rrn: '100000000007'
+  tran_id: TRN000000007
+  cust_ref: '200000000007'
+  amount: '1499.00'
+  payer_vpa: payer007@okbank
+  payee_vpa: merchant007@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000007'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-08-08T16:15:00'
+  reason_code: RC_1061
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-08-09'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence: []
+ground_truth:
+  expected_reason_code: RC_1061
+  expected_sufficiency: ABSENT
+  expected_decision: CONCEDE
+  rationale: None of RC 1061's accepted evidence types is present — no proof the goods were retained,
+    no cancellation policy document, no proof of refund by other means. With nothing to file, conceding
+    is the correct outcome.
+  source_rule: OC 208 §C (RC 1061 evidence table)

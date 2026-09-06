@@ -1,0 +1,53 @@
+case_id: seed_003
+version: seed-v1
+hard_case_class: STRONG
+narrative: Customer's account was debited but says the merchant never received the money. The acquiring
+  bank can show the credit landing in the merchant account in the same settlement cycle.
+dispute:
+  dispute_id: DSP-2026-0003
+  txn_id: TXN000000000003
+  rrn: '100000000003'
+  tran_id: TRN000000003
+  cust_ref: '200000000003'
+  amount: '1499.00'
+  payer_vpa: payer003@okbank
+  payee_vpa: merchant003@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000003'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-04-04T12:15:00'
+  reason_code: RC_108
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-04-05'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0003-1
+  dispute_id: DSP-2026-0003
+  type: cbs_screenshot_credit_merchant
+  source: acquiring bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS statement extract showing the credit to the merchant account with the disputed RRN
+    and amount, dated the same settlement cycle.
+  is_valid: true
+  validity_note: Screenshot is legible, shows account number, RRN, amount and value date.
+- evidence_id: EV-0003-2
+  dispute_id: DSP-2026-0003
+  type: merchant_settlement_details
+  source: acquirer settlement report
+  timestamp: '2026-03-10T11:00:00'
+  description: Settlement report line for cycle DC1 listing the disputed RRN as settled.
+  is_valid: true
+  validity_note: Corroborates the CBS credit from an independent system.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: RC 108 (P2M) accepts a CBS screenshot of the credit in the merchant account. The credit is
+    evidenced twice, legibly, against the disputed RRN.
+  source_rule: OC 208 §C (RC 108 U2 evidence table)

@@ -1,3 +1,7 @@
 # Data contents are DVC-tracked, not committed to git.
+# Exception: seed/ holds the small hand-built fixture set, which is tracked in git so the
+# ground truth stays reviewable in diffs.
 *
 !.gitignore
+!seed/
+!seed/**

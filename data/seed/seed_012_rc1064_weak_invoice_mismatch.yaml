@@ -1,0 +1,47 @@
+case_id: seed_012
+version: seed-v1
+hard_case_class: WEAK
+narrative: Customer says a laptop stand never arrived. The merchant submits an invoice with a delivery
+  note, but the transaction reference on it belongs to a different order.
+dispute:
+  dispute_id: DSP-2026-0012
+  txn_id: TXN000000000012
+  rrn: '100000000012'
+  tran_id: TRN000000012
+  cust_ref: '200000000012'
+  amount: '1499.00'
+  payer_vpa: payer012@okbank
+  payee_vpa: merchant012@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000012'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-05-13T12:15:00'
+  reason_code: RC_1064
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-05-14'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0012-1
+  dispute_id: DSP-2026-0012
+  type: invoice_with_proof_of_delivery
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Invoice INV-70233 with a courier POD, but the RRN and amount printed on it belong to a
+    different transaction by the same customer.
+  is_valid: false
+  validity_note: Transaction details do not match the invoice — a listed invalid reason. The document
+    does not pertain to the disputed transaction.
+ground_truth:
+  expected_reason_code: RC_1064
+  expected_sufficiency: WEAK
+  expected_decision: CONCEDE
+  rationale: An accepted evidence type is present, so the type-level check passes, but the artifact does
+    not pertain to this transaction. Transaction details not matching the invoice is an enumerated invalid
+    reason, so filing would lose.
+  source_rule: OC 208 §C (RC 1064 evidence table); OC 208A Annexure A (invalid reasons)

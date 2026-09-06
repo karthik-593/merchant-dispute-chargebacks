@@ -1,0 +1,52 @@
+case_id: seed_017
+version: seed-v1
+hard_case_class: CONTRADICTORY
+narrative: Customer says they were overcharged. The merchant's bill shows the charge equalling the transaction
+  amount, yet the merchant also submits proof it refunded an excess amount.
+dispute:
+  dispute_id: DSP-2026-0017
+  txn_id: TXN000000000017
+  rrn: '100000000017'
+  tran_id: TRN000000017
+  cust_ref: '200000000017'
+  amount: '2999.00'
+  payer_vpa: payer017@okbank
+  payee_vpa: merchant017@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000017'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-02-18T17:15:00'
+  reason_code: RC_1085
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-02-19'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0017-1
+  dispute_id: DSP-2026-0017
+  type: bill_receipt
+  source: merchant POS
+  timestamp: '2026-03-10T11:00:00'
+  description: Itemised bill totalling exactly the disputed transaction amount, with no excess line.
+  is_valid: true
+  validity_note: Legible and matched to the disputed RRN; on its face there was no overcharge.
+- evidence_id: EV-0017-2
+  dispute_id: DSP-2026-0017
+  type: proof_refund_extra_amount
+  source: merchant finance ledger
+  timestamp: '2026-03-10T11:00:00'
+  description: Refund voucher for an 'excess amount charged' against the same RRN, completed with UTR.
+  is_valid: true
+  validity_note: Completed refund, correctly referenced — but it presupposes an overcharge the bill denies.
+ground_truth:
+  expected_reason_code: RC_1085
+  expected_sufficiency: STRONG
+  expected_decision: ESCALATE
+  rationale: 'Two valid artifacts assert incompatible facts: the bill shows no excess while the refund
+    voucher settles one. The defence cannot be grounded until the conflict is resolved by a human.'
+  source_rule: OC 208 §C (RC 1085 evidence table)

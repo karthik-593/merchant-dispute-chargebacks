@@ -1,0 +1,46 @@
+case_id: seed_004
+version: seed-v1
+hard_case_class: STRONG
+narrative: Customer reports being charged twice within a minute for what they believe was one order. The
+  merchant shows two separate orders with different items dispatched to the same address.
+dispute:
+  dispute_id: DSP-2026-0004
+  txn_id: TXN000000000004
+  rrn: '100000000004'
+  tran_id: TRN000000004
+  cust_ref: '200000000004'
+  amount: '1499.00'
+  payer_vpa: payer004@okbank
+  payee_vpa: merchant004@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000004'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-05-05T13:15:00'
+  reason_code: RC_1084
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-05-06'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0004-1
+  dispute_id: DSP-2026-0004
+  type: proof_duplicate_not_same_goods
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Order records ORD-51120 and ORD-51121 with distinct SKUs, separate invoices and separate
+    PODs, each matched to one of the two transactions.
+  is_valid: true
+  validity_note: The two transactions map to two distinct orders with different goods; neither is a duplicate
+    of the other.
+ground_truth:
+  expected_reason_code: RC_1084
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: RC 1084 is answered by proof the multiple transactions were not for the same goods. Two distinct
+    orders with different SKUs and separate PODs establish that.
+  source_rule: OC 208 §C (RC 1084 evidence table)

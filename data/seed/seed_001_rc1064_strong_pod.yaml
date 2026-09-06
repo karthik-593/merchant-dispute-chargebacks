@@ -1,0 +1,54 @@
+case_id: seed_001
+version: seed-v1
+hard_case_class: STRONG
+narrative: Customer says a pair of headphones ordered on 4 March never arrived. The merchant's courier
+  shows the parcel signed for at the customer's registered address two days later.
+dispute:
+  dispute_id: DSP-2026-0001
+  txn_id: TXN000000000001
+  rrn: '100000000001'
+  tran_id: TRN000000001
+  cust_ref: '200000000001'
+  amount: '1499.00'
+  payer_vpa: payer001@okbank
+  payee_vpa: merchant001@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000001'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-02-02T10:15:00'
+  reason_code: RC_1064
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-02-03'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0001-1
+  dispute_id: DSP-2026-0001
+  type: invoice_with_proof_of_delivery
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Tax invoice INV-88421 for the disputed amount, with courier POD signed by the customer
+    and carrying the same RRN as the disputed transaction.
+  is_valid: true
+  validity_note: Invoice amount, date and RRN all match the disputed transaction; POD is legible and names
+    the registered customer.
+- evidence_id: EV-0001-2
+  dispute_id: DSP-2026-0001
+  type: bill_receipt
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Itemised bill for order ORD-88421 matching the invoice line and amount.
+  is_valid: true
+  validity_note: Consistent with the invoice; supports but does not by itself carry the claim.
+ground_truth:
+  expected_reason_code: RC_1064
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: RC 1064 is satisfied by an invoice with proof of delivery. The POD is legible, matches the
+    disputed RRN and amount, and no auto-loss condition is present, so a representment should be filed.
+  source_rule: OC 208 §C (RC 1064 evidence table); OC 208 §C(b) auto-loss check

@@ -1,0 +1,45 @@
+case_id: seed_015
+version: seed-v1
+hard_case_class: WEAK
+narrative: P2P credit disputed. The beneficiary bank sends a cropped screenshot that shows an amount but
+  no account number and no transaction reference.
+dispute:
+  dispute_id: DSP-2026-0015
+  txn_id: TXN000000000015
+  rrn: '100000000015'
+  tran_id: TRN000000015
+  cust_ref: '200000000015'
+  amount: '4100.00'
+  payer_vpa: payer015@okbank
+  payee_vpa: payee015@okbank
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000015'
+  payee_merchant_id: null
+  mcc: null
+  txn_timestamp: '2026-08-16T15:15:00'
+  reason_code: RC_108
+  txn_sub_type: U3
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-08-17'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0015-1
+  dispute_id: DSP-2026-0015
+  type: cbs_screenshot_credit_beneficiary
+  source: beneficiary bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: Cropped CBS screenshot showing only a credit amount and a partial date; account number
+    and RRN are not visible.
+  is_valid: false
+  validity_note: Partial evidence — the credit cannot be tied to this beneficiary or this transaction.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: WEAK
+  expected_decision: CONCEDE
+  rationale: The one accepted evidence type for P2P RC 108 is present but partial, which is an auto-loss
+    condition. Nothing ties the credit to the disputed transaction.
+  source_rule: OC 208 §C (RC 108 U3/UC evidence table); OC 208 §C(b) auto-loss conditions

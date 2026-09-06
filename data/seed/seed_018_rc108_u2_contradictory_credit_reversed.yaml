@@ -1,0 +1,53 @@
+case_id: seed_018
+version: seed-v1
+hard_case_class: CONTRADICTORY
+narrative: Merchant credit disputed. The acquiring bank's CBS shows a credit, but the settlement report
+  for the same cycle shows the entry reversed.
+dispute:
+  dispute_id: DSP-2026-0018
+  txn_id: TXN000000000018
+  rrn: '100000000018'
+  tran_id: TRN000000018
+  cust_ref: '200000000018'
+  amount: '1499.00'
+  payer_vpa: payer018@okbank
+  payee_vpa: merchant018@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000018'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-03-19T09:15:00'
+  reason_code: RC_108
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-03-20'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0018-1
+  dispute_id: DSP-2026-0018
+  type: cbs_screenshot_credit_merchant
+  source: acquiring bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract showing the credit posted to the merchant account for the disputed RRN.
+  is_valid: true
+  validity_note: Legible and correctly referenced to the disputed transaction.
+- evidence_id: EV-0018-2
+  dispute_id: DSP-2026-0018
+  type: merchant_settlement_details
+  source: acquirer settlement report
+  timestamp: '2026-03-10T11:00:00'
+  description: Settlement report for the same cycle showing the same RRN reversed out before cutover.
+  is_valid: true
+  validity_note: Legible and correctly referenced — and it contradicts the CBS credit.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: ESCALATE
+  rationale: The credit is both evidenced and reversed by two systems of record. Filing on the CBS screenshot
+    alone would be unsupported once the reversal surfaces, so the conflict must be escalated rather than
+    resolved by the agent.
+  source_rule: OC 208 §C (RC 108 U2 evidence table)

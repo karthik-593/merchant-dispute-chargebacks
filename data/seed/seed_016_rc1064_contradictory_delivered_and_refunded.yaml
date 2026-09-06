@@ -1,0 +1,56 @@
+case_id: seed_016
+version: seed-v1
+hard_case_class: CONTRADICTORY
+narrative: Customer says goods never arrived. The merchant submits a signed delivery proof and, in the
+  same bundle, a record showing the order was refunded in full a week earlier.
+dispute:
+  dispute_id: DSP-2026-0016
+  txn_id: TXN000000000016
+  rrn: '100000000016'
+  tran_id: TRN000000016
+  cust_ref: '200000000016'
+  amount: '1499.00'
+  payer_vpa: payer016@okbank
+  payee_vpa: merchant016@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000016'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-01-17T16:15:00'
+  reason_code: RC_1064
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-01-18'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0016-1
+  dispute_id: DSP-2026-0016
+  type: invoice_with_proof_of_delivery
+  source: merchant order system
+  timestamp: '2026-03-10T11:00:00'
+  description: Invoice INV-64110 with courier POD signed at the customer address, matching the disputed
+    RRN and amount.
+  is_valid: true
+  validity_note: Internally consistent and matched to the disputed transaction.
+- evidence_id: EV-0016-2
+  dispute_id: DSP-2026-0016
+  type: proof_refund_alternate_means
+  source: merchant finance ledger
+  timestamp: '2026-03-10T11:00:00'
+  description: Ledger entry showing the full disputed amount refunded to the customer's bank account by
+    NEFT, with UTR, dated before the dispute was raised.
+  is_valid: true
+  validity_note: Refund is completed and reconciled, not merely initiated.
+ground_truth:
+  expected_reason_code: RC_1064
+  expected_sufficiency: STRONG
+  expected_decision: ESCALATE
+  rationale: 'Both artifacts are of accepted types and both are individually valid, but they cannot both
+    be true as a defence: the merchant claims delivery and simultaneously evidences a full refund. A critical
+    contradiction is not something to resolve automatically — it needs human review before anything is
+    filed.'
+  source_rule: OC 208 §C (RC 1064 evidence table); OC 208 §C(b) auto-loss conditions

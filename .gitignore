@@ -13,9 +13,11 @@ dist/
 .env
 .uv-cache/
 
-# Data (DVC-tracked; the pointers are committed, the contents are not)
+# Data (DVC-tracked; the pointers are committed, the contents are not).
+# data/seed/ is the exception: small hand-built fixtures, reviewable in diffs, tracked in git.
 /data/*
 !/data/.gitignore
+!/data/seed/
 
 # Experiment tracking
 mlruns/

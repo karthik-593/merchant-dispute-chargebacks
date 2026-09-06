@@ -1,0 +1,45 @@
+case_id: seed_022
+version: seed-v1
+hard_case_class: MISLEADING
+narrative: Customer was debited twice for one order. The merchant says the duplicate has been refunded,
+  attaching only an internal ticket recording that a refund was requested.
+dispute:
+  dispute_id: DSP-2026-0022
+  txn_id: TXN000000000022
+  rrn: '100000000022'
+  tran_id: TRN000000022
+  cust_ref: '200000000022'
+  amount: '1499.00'
+  payer_vpa: payer022@okbank
+  payee_vpa: merchant022@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000022'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-07-23T13:15:00'
+  reason_code: RC_1084
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-07-24'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0022-1
+  dispute_id: DSP-2026-0022
+  type: proof_refund_alternate_means
+  source: merchant support desk
+  timestamp: '2026-03-10T11:00:00'
+  description: Support ticket TKT-9912 stating 'refund raised for duplicate leg', status open, with no
+    payment reference or settlement confirmation.
+  is_valid: false
+  validity_note: A request to refund is not a refund. No UTR, no credit, no value date.
+ground_truth:
+  expected_reason_code: RC_1084
+  expected_sufficiency: WEAK
+  expected_decision: CONCEDE
+  rationale: RC 1084 accepts proof of refund for the duplicate leg, and the artifact claims to be exactly
+    that — but it evidences only an internal request, not a completed credit to the customer.
+  source_rule: OC 208 §C (RC 1084 evidence table); OC 208A Annexure A (no/partial/incorrect refund details)

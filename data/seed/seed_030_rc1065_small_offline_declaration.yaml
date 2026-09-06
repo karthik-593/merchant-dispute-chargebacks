@@ -1,0 +1,47 @@
+case_id: seed_030
+version: seed-v1
+hard_case_class: SMALL_OFFLINE
+narrative: A tea stall taking QR payments. The customer was debited but says no confirmation appeared.
+  The stall keeps no invoices, so the acquiring bank issues a declaration letter instead.
+dispute:
+  dispute_id: DSP-2026-0030
+  txn_id: TXN000000000030
+  rrn: '100000000030'
+  tran_id: TRN000000030
+  cust_ref: '200000000030'
+  amount: '120.00'
+  payer_vpa: payer030@okbank
+  payee_vpa: merchant030@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000030'
+  payee_merchant_id: MID00000777
+  mcc: '5812'
+  txn_timestamp: '2026-07-04T12:15:00'
+  reason_code: RC_1065
+  txn_sub_type: U2
+  merchant_type: small_offline
+  settlement_cycle: DC1
+  settlement_date: '2026-07-06'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0030-1
+  dispute_id: DSP-2026-0030
+  type: acquirer_declaration_letter
+  source: acquiring bank
+  timestamp: '2026-03-10T11:00:00'
+  description: Declaration letter on acquirer letterhead in the prescribed format, confirming the merchant
+    is a small/offline merchant and that the service was rendered against the disputed RRN.
+  is_valid: true
+  validity_note: Issued by the acquirer in the prescribed format, references the disputed RRN and amount,
+    and is signed.
+ground_truth:
+  expected_reason_code: RC_1065
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: For a small or offline merchant that cannot produce documentary fulfilment evidence, the
+    acquirer's declaration letter substitutes for it. The letter is in the prescribed format and references
+    this transaction, so the representment is supportable.
+  source_rule: OC 172; OC 208 §C(a) and §D (declaration in lieu of evidence)

@@ -1,0 +1,47 @@
+case_id: seed_020
+version: seed-v1
+hard_case_class: MISLEADING
+narrative: Customer cancelled an order and says no money came back. The merchant produces a refund reference
+  — but it records only that a refund was initiated, never that it settled.
+dispute:
+  dispute_id: DSP-2026-0020
+  txn_id: TXN000000000020
+  rrn: '100000000020'
+  tran_id: TRN000000020
+  cust_ref: '200000000020'
+  amount: '1499.00'
+  payer_vpa: payer020@okbank
+  payee_vpa: merchant020@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000020'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-05-21T11:15:00'
+  reason_code: RC_1061
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-05-22'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0020-1
+  dispute_id: DSP-2026-0020
+  type: proof_refund_alternate_means
+  source: merchant finance system
+  timestamp: '2026-03-10T11:00:00'
+  description: Screenshot of a refund request in 'INITIATED' status with a reference number; no UTR, no
+    credit confirmation, no value date.
+  is_valid: false
+  validity_note: Refund is initiated, not completed. There is no evidence the customer was actually credited,
+    so this does not prove the refund happened.
+ground_truth:
+  expected_reason_code: RC_1061
+  expected_sufficiency: WEAK
+  expected_decision: CONCEDE
+  rationale: The evidence type is accepted for RC 1061, so a type-only check would pass it — but an initiated
+    refund is not a completed one. Incorrect or partial refund details are an enumerated invalid reason,
+    so the representment would lose.
+  source_rule: OC 208 §C (RC 1061 evidence table); OC 208A Annexure A (no/partial/incorrect refund details)

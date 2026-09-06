@@ -1,0 +1,36 @@
+case_id: seed_011
+version: seed-v1
+hard_case_class: ABSENT
+narrative: A TCC was raised on a P2P transfer and the remitter still disputes the credit. The beneficiary
+  bank has not produced a CBS extract.
+dispute:
+  dispute_id: DSP-2026-0011
+  txn_id: TXN000000000011
+  rrn: '100000000011'
+  tran_id: TRN000000011
+  cust_ref: '200000000011'
+  amount: '3200.00'
+  payer_vpa: payer011@okbank
+  payee_vpa: payee011@okbank
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000011'
+  payee_merchant_id: null
+  mcc: null
+  txn_timestamp: '2026-04-12T11:15:00'
+  reason_code: RC_121
+  txn_sub_type: UC
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-04-13'
+  tcc_ret_status: TCC
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence: []
+ground_truth:
+  expected_reason_code: RC_121
+  expected_sufficiency: ABSENT
+  expected_decision: CONCEDE
+  rationale: P2P RC 121 accepts only a CBS screenshot of the credit in the beneficiary account. It is
+    absent, so the representment cannot be supported.
+  source_rule: OC 208 §C (RC 121 U3/UC evidence table)

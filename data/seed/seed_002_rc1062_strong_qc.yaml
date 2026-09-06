@@ -1,0 +1,47 @@
+case_id: seed_002
+version: seed-v1
+hard_case_class: STRONG
+narrative: Customer claims a delivered mixer-grinder was defective and not as described. The merchant
+  has a pre-dispatch QC record and the customer's signed acceptance at delivery.
+dispute:
+  dispute_id: DSP-2026-0002
+  txn_id: TXN000000000002
+  rrn: '100000000002'
+  tran_id: TRN000000002
+  cust_ref: '200000000002'
+  amount: '1499.00'
+  payer_vpa: payer002@okbank
+  payee_vpa: merchant002@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000002'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-03-03T11:15:00'
+  reason_code: RC_1062
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-03-04'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0002-1
+  dispute_id: DSP-2026-0002
+  type: doc_goods_as_described
+  source: merchant QC system
+  timestamp: '2026-03-10T11:00:00'
+  description: Pre-dispatch QC checklist with serial number, photographs of the sealed unit, and the customer's
+    signed delivery acceptance for the same order.
+  is_valid: true
+  validity_note: Documents the condition of the exact serialised unit shipped against this order; acceptance
+    is signed and dated.
+ground_truth:
+  expected_reason_code: RC_1062
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: RC 1062's only accepted evidence type is documentation that the goods were as ordered and
+    in good condition. The QC record plus signed acceptance is exactly that and is tied to the serial
+    number on this order.
+  source_rule: OC 208 §C (RC 1062 evidence table)

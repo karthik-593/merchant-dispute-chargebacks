@@ -1,0 +1,44 @@
+case_id: seed_006
+version: seed-v1
+hard_case_class: STRONG
+narrative: P2P transfer where the remitter says the beneficiary never received the money. The beneficiary
+  bank can show the credit posted.
+dispute:
+  dispute_id: DSP-2026-0006
+  txn_id: TXN000000000006
+  rrn: '100000000006'
+  tran_id: TRN000000006
+  cust_ref: '200000000006'
+  amount: '7500.00'
+  payer_vpa: payer006@okbank
+  payee_vpa: payee006@okbank
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000006'
+  payee_merchant_id: null
+  mcc: null
+  txn_timestamp: '2026-07-07T15:15:00'
+  reason_code: RC_108
+  txn_sub_type: U3
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-07-08'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence:
+- evidence_id: EV-0006-1
+  dispute_id: DSP-2026-0006
+  type: cbs_screenshot_credit_beneficiary
+  source: beneficiary bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract showing the credit to the beneficiary account for the disputed RRN and amount.
+  is_valid: true
+  validity_note: Legible extract showing beneficiary account number, RRN, amount and value date.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: For P2P RC 108 the rulebook accepts a CBS screenshot of the credit in the beneficiary account.
+    It is present, legible and matches the disputed RRN.
+  source_rule: OC 208 §C (RC 108 U3/UC evidence table)

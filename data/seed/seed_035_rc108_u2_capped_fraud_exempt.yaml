@@ -1,0 +1,45 @@
+case_id: seed_035
+version: seed-v1
+hard_case_class: CAPPED
+narrative: This account is well past twelve chargebacks in thirty days, but the transaction in dispute
+  is flagged as fraud, which sits outside the cap regime.
+dispute:
+  dispute_id: DSP-2026-0035
+  txn_id: TXN000000000035
+  rrn: '100000000035'
+  tran_id: TRN000000035
+  cust_ref: '200000000035'
+  amount: '1499.00'
+  payer_vpa: payer035@okbank
+  payee_vpa: merchant035@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000035'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-04-09T17:15:00'
+  reason_code: RC_108
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-04-11'
+  tcc_ret_status: null
+  fraud_flag: true
+  chargeback_count_ifsc_acct: 12
+  chargeback_count_vpa_pair: 7
+evidence:
+- evidence_id: EV-0035-1
+  dispute_id: DSP-2026-0035
+  type: cbs_screenshot_credit_merchant
+  source: acquiring bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract showing the credit posted to the merchant account against the disputed RRN.
+  is_valid: true
+  validity_note: Legible, correctly referenced, and covers the disputed transaction.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: FILE
+  rationale: The chargeback counts are far above both caps, but fraud transactions are exempt from them,
+    so the caps gate does not fire and the case is decided on its evidence. The CBS credit is present
+    and valid, so the representment should be filed.
+  source_rule: OC 184A (fraud transactions exempt from caps); OC 208 §C (RC 108 U2 evidence table)

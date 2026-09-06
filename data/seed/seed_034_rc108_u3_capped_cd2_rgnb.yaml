@@ -1,0 +1,45 @@
+case_id: seed_034
+version: seed-v1
+hard_case_class: CAPPED
+narrative: The same payer-payee VPA pair has already produced five chargebacks this month. The sixth claim
+  is genuine but the pair is at its limit.
+dispute:
+  dispute_id: DSP-2026-0034
+  txn_id: TXN000000000034
+  rrn: '100000000034'
+  tran_id: TRN000000034
+  cust_ref: '200000000034'
+  amount: '2200.00'
+  payer_vpa: payer034@okbank
+  payee_vpa: payee034@okbank
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000034'
+  payee_merchant_id: null
+  mcc: null
+  txn_timestamp: '2026-03-08T16:15:00'
+  reason_code: RC_108
+  txn_sub_type: U3
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-03-10'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 3
+  chargeback_count_vpa_pair: 5
+evidence:
+- evidence_id: EV-0034-1
+  dispute_id: DSP-2026-0034
+  type: cbs_screenshot_credit_beneficiary
+  source: beneficiary bank CBS
+  timestamp: '2026-03-10T11:00:00'
+  description: CBS extract showing no credit posted against the disputed RRN.
+  is_valid: true
+  validity_note: Legible extract covering the relevant window.
+ground_truth:
+  expected_reason_code: RC_108
+  expected_sufficiency: STRONG
+  expected_decision: RGNB
+  rationale: The per-VPA-pair cap of five chargebacks in a rolling thirty days is met, so a sixth is declined
+    under CD2 regardless of merit. The genuine claim is routed through the remitter good-faith negative
+    chargeback path.
+  source_rule: OC 184 (CD2 cap, 5 per payer-payee VPA pair per 30 days); OC 184B (RGNB path)

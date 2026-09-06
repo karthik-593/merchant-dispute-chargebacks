@@ -1,0 +1,36 @@
+case_id: seed_009
+version: seed-v1
+hard_case_class: ABSENT
+narrative: Merchant claims a transaction was never settled to them inside the specified timeframe, but
+  offers no settlement report or CBS extract to show it.
+dispute:
+  dispute_id: DSP-2026-0009
+  txn_id: TXN000000000009
+  rrn: '100000000009'
+  tran_id: TRN000000009
+  cust_ref: '200000000009'
+  amount: '1499.00'
+  payer_vpa: payer009@okbank
+  payee_vpa: merchant009@okpsp
+  payer_ifsc: HDFC0001234
+  payer_account: '501000000009'
+  payee_merchant_id: MID00000042
+  mcc: '5651'
+  txn_timestamp: '2026-02-10T09:15:00'
+  reason_code: RC_1081
+  txn_sub_type: U2
+  merchant_type: large
+  settlement_cycle: DC1
+  settlement_date: '2026-02-11'
+  tcc_ret_status: null
+  fraud_flag: false
+  chargeback_count_ifsc_acct: 1
+  chargeback_count_vpa_pair: 1
+evidence: []
+ground_truth:
+  expected_reason_code: RC_1081
+  expected_sufficiency: ABSENT
+  expected_decision: CONCEDE
+  rationale: RC 1081 requires a CBS credit screenshot, settlement details, or one of the fulfilment documents.
+    Nothing has been supplied, so there is no basis to represent.
+  source_rule: OC 208 §C (RC 1081 evidence table)
