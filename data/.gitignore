@@ -1,0 +1,3 @@
+# Data contents are DVC-tracked, not committed to git.
+*
+!.gitignore

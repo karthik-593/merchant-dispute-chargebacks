@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+.env
+
+# Data (DVC-tracked; the pointers are committed, the contents are not)
+/data/*
+!/data/.gitignore
+
+# Experiment tracking
+mlruns/
+mlartifacts/
+
+# DVC
+/.dvc/cache
+/.dvc/tmp
+
+# Local working material, not part of the published repo
+CLAUDE.md
+/docs/
+
+# OS / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,27 @@
+# config.yaml — runtime configuration for the UPI dispute agent.
+# Domain RULES do not live here; they live in configs/rulebook/*.yaml with a `source` tag.
+# This file holds only paths, seeds, tracking, and logging.
+
+project:
+  name: merchant-dispute-chargebacks
+  milestone: M0
+
+seed: 42
+
+paths:
+  configs: configs
+  rulebook: configs/rulebook
+  data: data
+  refs: refs/circulars
+  docs: docs
+  experiments: experiments
+  artifacts: data/artifacts
+
+mlflow:
+  tracking_uri: file:./mlruns
+  experiment_name: upi-dispute-agent
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+  datefmt: "%Y-%m-%dT%H:%M:%S"
