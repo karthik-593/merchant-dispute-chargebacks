@@ -1,0 +1,22 @@
+# fees.yaml — dispute-stage fees and interchange treatment.
+# STUB (M1 not started): no rules encoded yet.
+#
+# Feeds the expected-value decision engine in src/decision/ (L5): filing cost and expected
+# failure cost are read from here, never hard-coded. Each entry MUST carry a `source` naming
+# the circular + section it comes from; verify it against refs/circulars/ before adding.
+#
+# Expected shape (illustrative only — do not treat as encoded rules):
+#   <fee_id>:
+#     description: "..."
+#     amount_inr: <number>
+#     gst_applicable: <bool>
+#     charged_when: "..."
+#     reversed_if: "..."
+#     source: "OC ___ §___"
+
+meta:
+  version: "0.0"
+  status: stub
+  source: "TODO: OC 208 (NRP fee), OC 208A (PRD fee), OC 160 (interchange) — pending M1 port"
+
+fees: {}

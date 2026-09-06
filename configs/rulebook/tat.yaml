@@ -1,0 +1,21 @@
+# tat.yaml — turnaround-time clocks for the dispute lifecycle.
+# STUB (M1 not started): no rules encoded yet.
+#
+# Feeds the deterministic TAT clock in src/decision/ (L0). Each entry MUST carry a `source`
+# naming the circular + section it comes from — an entry without a traceable source does not
+# exist. Verify every value against the circular in refs/circulars/ before adding it here.
+#
+# Expected shape (illustrative only — do not treat as encoded rules):
+#   <clock_id>:
+#     description: "..."
+#     duration_days: <int>
+#     day_basis: calendar | business
+#     starts_from: "..."
+#     source: "OC ___ §___"
+
+meta:
+  version: "0.0"
+  status: stub
+  source: "TODO: OC 198, OC 208/208A/208C, OC 235, OC 184B, OC 213 — pending M1 port"
+
+clocks: {}

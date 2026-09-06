@@ -1,0 +1,190 @@
+# reason_code_evidence.yaml
+# Evidence-SUFFICIENCY rulebook: reason code -> required evidence TYPES.
+# This drives the DETERMINISTIC L0 sufficiency engine (baseline B0). No LLM reads this to
+# "reason" — it is a lookup. The LLM's job (L2) is VALIDITY: does a supplied artifact actually
+# satisfy one of these types, is a refund completed vs initiated, etc.
+#
+# PROVENANCE: every entry traces to a circular + section. Do not add a reason code or evidence
+# requirement that is not in a source. `any_of` = supplying ANY ONE listed type satisfies the
+# requirement (matches the "(or)" structure of OC 208 Table C).
+#
+# Primary source: NPCI/UPI/OC 208/2024-25 (03 Oct 2024), Section C "Type of Evidence",
+# read from the circular page images (p6-p7). Cross-refs: OC 172, OC 208 Sec C(a)/(b), OC 208A.
+
+meta:
+  version: "1.0"
+  primary_source: "OC 208/2024-25 §C (Type of Evidence)"
+  txn_sub_types:
+    U2: "P2M (person-to-merchant)"
+    U3: "P2P (person-to-person)"
+    UC: "P2P variant, grouped with U3 in OC 208 §C"
+  notes:
+    - "RC codes here are chargeback / re-presentment reason codes."
+    - "Same evidence applies when REJECTING a Pre-Arbitration or Arbitration; additional
+       justifying evidence may be attached. [OC 208 §C]"
+
+# ---------------------------------------------------------------------------
+# Canonical evidence-type vocabulary (controlled enum for downstream code).
+# The validity layer (L2) maps a raw artifact to one of these ids.
+# ---------------------------------------------------------------------------
+evidence_types:
+  charge_slip:                         "Charge slip"
+  bill_receipt:                        "Bill / Receipt"
+  invoice_with_proof_of_delivery:      "Invoice with proof of delivery"
+  cbs_screenshot_credit_merchant:      "CBS screenshot of credit in merchant account"
+  cbs_screenshot_credit_beneficiary:   "CBS screenshot of credit in beneficiary account"
+  merchant_settlement_details:         "Merchant settlement details"
+  proof_refund_alternate_means:        "Proof of refund via alternate means"
+  proof_goods_not_returned:            "Proof goods/services not returned by the customer"
+  cancellation_return_policy:          "No or limited cancellation/return policy details"
+  doc_goods_as_described:              "Document justifying goods/services were as per order / in good condition"
+  proof_payment_not_received_other:    "Proof payment not received by other means for the same goods/services"
+  proof_duplicate_not_same_goods:      "Proof the duplicate/multiple txn were not for the same goods/services"
+  proof_refund_extra_amount:           "Proof of refund via alternate means for the extra amount charged"
+  acquirer_declaration_letter:         "Acquirer/beneficiary declaration letter (small/offline merchant, in lieu of evidence)"
+
+# ---------------------------------------------------------------------------
+# Reason code -> mandatory evidence (any_of), by txn sub-type.
+# ---------------------------------------------------------------------------
+reason_codes:
+
+  # ===== U2 (P2M) =====
+  RC_1061:
+    txn_sub_type: [U2]
+    description: "Credit not processed for cancelled or returned goods/services"
+    required_evidence_any_of:
+      - proof_goods_not_returned
+      - cancellation_return_policy
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+
+  RC_1062:
+    txn_sub_type: [U2]
+    description: "Goods and services not as described / defective"
+    required_evidence_any_of:
+      - doc_goods_as_described
+    source: "OC 208 §C"
+
+  RC_1063:
+    txn_sub_type: [U2]
+    description: "Paid by alternate means"
+    required_evidence_any_of:
+      - proof_payment_not_received_other
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+
+  RC_1064:
+    txn_sub_type: [U2]
+    description: "Goods or services not provided / not received"
+    required_evidence_any_of:
+      - charge_slip
+      - bill_receipt
+      - invoice_with_proof_of_delivery
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+
+  RC_1065:
+    txn_sub_type: [U2]
+    description: "Account debited but transaction confirmation not received at merchant location"
+    required_evidence_any_of:
+      - charge_slip
+      - bill_receipt
+      - invoice_with_proof_of_delivery   # "(if any)"
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+    notes: "If Acquiring PSP == Merchant Bank (deemed-approval P2M), presume merchant delivered;
+             require fulfilment evidence before conceding. [OC 39A]"
+
+  RC_108_U2:
+    code: RC_108
+    txn_sub_type: [U2]
+    description: "Remitter account debited but beneficiary account not credited (P2M)"
+    required_evidence_any_of:
+      - cbs_screenshot_credit_merchant
+      - merchant_settlement_details
+      - charge_slip
+      - bill_receipt
+      - invoice_with_proof_of_delivery
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+
+  RC_1081:
+    txn_sub_type: [U2]
+    description: "Transaction not settled within the specified timeframes"
+    required_evidence_any_of:
+      - cbs_screenshot_credit_merchant
+      - merchant_settlement_details
+      - charge_slip
+      - bill_receipt
+      - invoice_with_proof_of_delivery   # "(if any)"
+      - proof_refund_alternate_means
+    source: "OC 208 §C"
+
+  RC_1084:
+    txn_sub_type: [U2]
+    description: "Duplicate / multiple transaction"
+    required_evidence_any_of:
+      - proof_duplicate_not_same_goods
+      - proof_refund_alternate_means     # for the duplicate/multiple txn
+    source: "OC 208 §C"
+
+  RC_1085:
+    txn_sub_type: [U2]
+    description: "Customer was charged more than the transaction amount"
+    required_evidence_any_of:
+      - charge_slip
+      - bill_receipt
+      - invoice_with_proof_of_delivery   # "(if any)"
+      - proof_refund_extra_amount
+    source: "OC 208 §C"
+
+  RC_121_U2:
+    code: RC_121
+    txn_sub_type: [U2]
+    description: "TCC raised but customer still complaining beneficiary a/c not credited"
+    required_evidence_any_of:
+      - cbs_screenshot_credit_merchant
+    source: "OC 208 §C"
+
+  # ===== U3 / UC (P2P) =====
+  RC_108_U3:
+    code: RC_108
+    txn_sub_type: [U3, UC]
+    description: "Remitter account debited but beneficiary account not credited (P2P)"
+    required_evidence_any_of:
+      - cbs_screenshot_credit_beneficiary
+    source: "OC 208 §C"
+
+  RC_121_U3:
+    code: RC_121
+    txn_sub_type: [U3, UC]
+    description: "TCC raised but customer still complaining beneficiary a/c not credited"
+    required_evidence_any_of:
+      - cbs_screenshot_credit_beneficiary
+    source: "OC 208 §C"
+
+# ---------------------------------------------------------------------------
+# Merchant-type rule (branch in the sufficiency engine).
+# ---------------------------------------------------------------------------
+merchant_type_rule:
+  small_or_offline:
+    rule: "If merchant cannot submit fulfilment evidence, acquirer/beneficiary confirms via a
+           declaration letter (OC 208 Table D format)."
+    substitute_evidence: acquirer_declaration_letter
+    source: "OC 172; OC 208 §C(a), §D"
+  large:
+    rule: "Documentary evidence per reason_codes is mandatory; declaration does not substitute."
+    source: "OC 208 §C(a)"
+
+# ---------------------------------------------------------------------------
+# Auto-LOSS conditions — verdict goes to remitter/issuer regardless of the map above.
+# These belong to the VALIDITY/verifier layer (L4). Fail => do not FILE.
+# Full invalid-reason taxonomy lives in reject_taxonomy.yaml [OC 208A Annexure A].
+# ---------------------------------------------------------------------------
+auto_loss_conditions:
+  source: "OC 208 §C(b)"
+  conditions:
+    - "No / blurry / partial / illegible evidence"
+    - "Reason/evidence = customer/merchant account zero/insufficient balance, or under
+       freeze / close / regulatory-block status"
+    - "Reason/evidence = customer/merchant not contactable"

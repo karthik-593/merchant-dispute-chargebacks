@@ -1,0 +1,24 @@
+# caps.yaml — chargeback volume caps and the negative-list / CCD gate.
+# STUB (M1 not started): no rules encoded yet.
+#
+# Feeds the deterministic caps gate in src/decision/ (L0), which runs BEFORE any chargeback is
+# raised: a capped customer or VPA pair routes to the RGNB path instead. Each entry MUST carry a
+# `source` naming the circular + section it comes from; verify it against refs/circulars/
+# before adding.
+#
+# Expected shape (illustrative only — do not treat as encoded rules):
+#   <cap_id>:
+#     description: "..."
+#     scope: "..."          # what the count is keyed on
+#     limit: <int>
+#     window_days: <int>
+#     on_breach: "..."      # decline code / routing
+#     exemptions: ["..."]
+#     source: "OC ___ §___"
+
+meta:
+  version: "0.0"
+  status: stub
+  source: "TODO: OC 184, OC 184A, OC 184B — pending M1 port"
+
+caps: {}

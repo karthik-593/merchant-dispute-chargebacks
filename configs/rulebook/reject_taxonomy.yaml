@@ -1,0 +1,20 @@
+# reject_taxonomy.yaml — invalid-reason / rejection codes for chargebacks and representments.
+# STUB (M1 not started): no rules encoded yet.
+#
+# Feeds the L0 pre-file validity gate and the L4 verifier's hard gates: a representment that
+# would trip a listed invalid reason must not be filed. Each entry MUST carry a `source` naming
+# the circular + section it comes from; verify it against refs/circulars/ before adding.
+#
+# Expected shape (illustrative only — do not treat as encoded rules):
+#   <reject_code>:
+#     description: "..."
+#     applies_to: ["..."]   # lifecycle stage(s)
+#     detectable_by: deterministic | verifier
+#     source: "OC ___ Annexure ___"
+
+meta:
+  version: "0.0"
+  status: stub
+  source: "TODO: OC 208A Annexure A (invalid reason codes), OC 208 §C(b) — pending M1 port"
+
+reject_reasons: {}
