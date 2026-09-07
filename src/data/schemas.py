@@ -17,6 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from src.data.rulebook_vocab import evidence_type_ids, reason_code_ids
 
 SEED_VERSION = "seed-v1"
+SYNTHETIC_VERSION = "dataset-v1.0"
+# A case file must declare one of these. Keeping the set here means the two datasets share one
+# model and one identity check rather than drifting into separate schemas.
+KNOWN_DATASET_VERSIONS = frozenset({SEED_VERSION, SYNTHETIC_VERSION})
 
 
 class TxnSubType(str, Enum):
@@ -56,6 +60,18 @@ class Decision(str, Enum):
     CONCEDE = "CONCEDE"
     ESCALATE = "ESCALATE"
     RGNB = "RGNB"
+
+
+class RealizedOutcome(str, Enum):
+    """Whether a representment would have succeeded, had it been filed.
+
+    Counterfactual and stochastic: it is drawn from the noise model, is defined for every case
+    regardless of the decision taken, and never feeds back into the deterministic decision. This
+    is the target the calibrated scorer will learn.
+    """
+
+    WON = "WON"
+    LOST = "LOST"
 
 
 class HardCaseClass(str, Enum):
@@ -164,6 +180,16 @@ class GroundTruth(BaseModel):
     expected_decision: Decision
     rationale: str = Field(min_length=1)
     source_rule: str = Field(min_length=1, description="governing circular and section")
+    realized_outcome: RealizedOutcome | None = Field(
+        default=None,
+        description="counterfactual outcome of filing; synthetic cases only, absent in seed-v1",
+    )
+    win_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="probability the representment succeeds, from the documented noise model",
+    )
 
     @field_validator("expected_reason_code")
     @classmethod
@@ -189,9 +215,12 @@ class SeedCase(BaseModel):
 
     @field_validator("version")
     @classmethod
-    def _version_is_seed_v1(cls, value: str) -> str:
-        if value != SEED_VERSION:
-            raise ValueError(f"expected version {SEED_VERSION!r}, got {value!r}")
+    def _version_is_known(cls, value: str) -> str:
+        if value not in KNOWN_DATASET_VERSIONS:
+            raise ValueError(
+                f"unknown dataset version {value!r}; expected one of "
+                f"{sorted(KNOWN_DATASET_VERSIONS)}"
+            )
         return value
 
     @model_validator(mode="after")
