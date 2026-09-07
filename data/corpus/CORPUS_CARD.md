@@ -10,10 +10,10 @@ Nothing here is chunked or embedded yet. That is later work.
 
 ## Extraction
 
-- **Documents**: 33
-- **Pages**: 141 (58 recognised by OCR)
-- **Characters**: 240,461
-- **OCR engine**: tesseract (tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe)
+- **Records**: 35 over 33 source circulars
+- **Pages**: 143 (58 recognised by OCR)
+- **Characters**: 247,519
+- **OCR engine**: tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe
 - **Rasterisation**: 300 dpi, via PyMuPDF (no poppler dependency)
 - **Text-layer threshold**: a page yielding under 120 characters is treated as having no text layer and is sent to OCR
 
@@ -23,14 +23,32 @@ Most of these circulars are image scans, so extraction is two-stage and per page
 
 | method | documents | share | meaning |
 |---|---:|---:|---|
-| `text` | 9 | 27.3% | every page had a usable text layer |
-| `ocr` | 22 | 66.7% | image scan; every page was recognised |
-| `mixed` | 2 | 6.1% | text body with scanned pages (typically a cover or an annexure) |
+| `text` | 9 | 25.7% | every page had a usable text layer |
+| `ocr` | 22 | 62.9% | image scan; every page was recognised |
+| `mixed` | 2 | 5.7% | text body with scanned pages (typically a cover or an annexure) |
+| `curated` | 2 | 5.7% | a table rebuilt from its verified structured form, because OCR cannot render it usefully |
+
+Records cover 33 source circulars: 33 extracted bodies plus 2 curated table(s) attached to circulars that also have a body record.
+
+### Curated tables
+
+OCR flattens a table into running text, so the OC 208 §C evidence map and the OC 184B RGNB response table both lose the association between a row and its columns. A chunk of either reads as a stream of codes with no reliable link between a reason code and the evidence that answers it — which retrieves as though it were an answer while being unusable. Both are therefore also carried as curated records, rebuilt from the verified structured form held in `configs/rulebook/`, so retrieval gets clean rows.
+
+**The OCR'd bodies are kept.** Nothing is deleted: the flattened table text is still in the corpus and still cites its page. It is simply superseded for retrieval by the curated record, which names what it replaces in `supersedes_doc_id` so the relationship is machine-readable rather than a note in prose.
+
+| curated record | section | supersedes |
+|---|---|---|
+| `oc_184b_rgnb_response_table_curated` | RGNB response table | `upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul` |
+| `oc_208_sec_c_evidence_map_curated` | §C (Type of Evidence) | `upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines` |
+
+Only these two are curated, and only because they are verified against source. Every other table stays as OCR'd text until someone checks it: a curated record asserts that a human confirmed it, and producing them casually would empty the label of meaning.
 
 ## Per-document yield
 
 | method | ref (parsed from content) | pages | chars | chars/page | doc_id |
 |---|---|---:|---:|---:|---|
+| `curated` | — | 1 | 5,313 | 5,313 | `oc_208_sec_c_evidence_map_curated` |
+| `curated` | — | 1 | 1,745 | 1,745 | `oc_184b_rgnb_response_table_curated` |
 | `mixed` | — | 28 | 38,817 | 1,386 | `osdt31012019` |
 | `mixed` | — | 4 | 4,086 | 1,021 | `upi_settlement_process_256f73e1df` |
 | `ocr` | — | 8 | 16,944 | 2,118 | `upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines` |
@@ -97,7 +115,7 @@ Every record carries `source_path` and `source_sha256`, so a chunk traces to an 
 
 ## Known limitations
 
-- OCR quality is unmeasured. No page has been checked against a human transcription, so the character error rate is unknown. The evidence for it being adequate is indirect: the scanned documents average around 1,705 characters per page, which is in the range of the born-digital ones, and no document fell under the 400-character review threshold.
-- Tables are flattened. The evidence table in OC 208 §C and the RGNB table in OC 184B become running text, losing their row and column structure. A chunker that splits mid-table will produce misleading fragments; this needs attention when chunking is designed.
+- OCR quality is unmeasured. No page has been checked against a human transcription, so the character error rate is unknown. The evidence for it being adequate is indirect: the scanned documents average around 1,730 characters per page, which is in the range of the born-digital ones, and no document fell under the 400-character review threshold.
+- Tables are flattened by OCR. The two that retrieval most depends on — OC 208 §C and the OC 184B RGNB table — are addressed by the curated records above, but every other table in the corpus is still running text. A chunker that splits mid-table will produce misleading fragments; this needs attention when chunking is designed.
 - Recognition is English-only. Several RBI circulars carry a Hindi header, which is recognised as noise. It sits at the top of page 1 and does not affect the operative English text below it.
 - Tesseract is a system binary, not a Python dependency, so `uv sync` alone does not make ingestion reproducible on another machine. The corpus output is DVC-tracked so it does not have to be regenerated to be used.

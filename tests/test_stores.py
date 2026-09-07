@@ -7,6 +7,9 @@ pull` still gets a green suite instead of a misleading failure.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
 from src.data.evidence_store import (
@@ -14,6 +17,7 @@ from src.data.evidence_store import (
     SYNTHETIC_SOURCE,
     EvidenceStore,
 )
+from src.data.rulebook_vocab import evidence_type_ids, load_caps, reason_code_entries
 from src.data.schemas import SeedCase
 from src.data.seed_loader import load_seed_cases
 from src.data.synthetic_dataset import read_jsonl, synthetic_dir
@@ -22,6 +26,7 @@ from src.decision.verifier import StubVerifier
 from src.retrieval.corpus_ingest import (
     CORPUS_FILE,
     EXTRACTION_BLANK,
+    EXTRACTION_CURATED,
     EXTRACTION_MIXED,
     EXTRACTION_OCR,
     EXTRACTION_TEXT,
@@ -32,6 +37,7 @@ from src.retrieval.corpus_ingest import (
     source_pdfs,
 )
 from src.retrieval.corpus_validation import filename_hint, validate_corpus
+from src.retrieval.curated_records import build_oc_184b_rgnb_table, build_oc_208_evidence_map
 
 SYNTHETIC_TRAIN = synthetic_dir() / "train.jsonl"
 CORPUS_PATH = corpus_dir() / CORPUS_FILE
@@ -165,13 +171,20 @@ def test_extracting_a_born_digital_circular_needs_no_ocr():
 
 
 @needs_corpus
-def test_one_non_empty_record_per_circular(corpus):
-    assert len(corpus) == len(source_pdfs())
+def test_every_circular_has_at_least_one_non_empty_record(corpus):
+    """One body record per circular, plus the curated tables that supplement two of them."""
+    curated = [r for r in corpus if r.extraction_method == EXTRACTION_CURATED]
+    assert len(corpus) == len(source_pdfs()) + len(curated)
     for record in corpus:
         assert record.text.strip(), record.doc_id
         assert record.char_count > 0, record.doc_id
         assert record.page_count > 0, record.doc_id
-        assert record.extraction_method in {EXTRACTION_TEXT, EXTRACTION_OCR, EXTRACTION_MIXED}
+        assert record.extraction_method in {
+            EXTRACTION_TEXT,
+            EXTRACTION_OCR,
+            EXTRACTION_MIXED,
+            EXTRACTION_CURATED,
+        }
 
 
 @needs_corpus
@@ -255,3 +268,79 @@ def test_blank_pages_are_marked_blank_not_treated_as_ocr_failures(corpus):
 def test_no_document_rolls_up_to_blank(corpus):
     """A document that is blank end to end would mean extraction produced nothing at all."""
     assert [r.doc_id for r in corpus if r.extraction_method == EXTRACTION_BLANK] == []
+
+
+# --- curated table records ---------------------------------------------------------------------
+
+
+def test_curated_records_are_built_from_the_rulebook_not_hand_keyed():
+    """Every reason code and accepted evidence type in the rulebook must appear in the record.
+
+    Built from config, so changing the rulebook changes the record. If this drifts, the curated
+    text has been edited by hand and no longer reflects the rules the engine applies.
+    """
+    record = build_oc_208_evidence_map()
+    entries = reason_code_entries()
+    for key, entry in entries.items():
+        code = entry.get("code", key)
+        assert code in record.text, f"{code} missing from the curated evidence map"
+        for evidence_type in entry["required_evidence_any_of"]:
+            assert evidence_type in record.text, f"{code}/{evidence_type} missing"
+    assert record.extraction_method == EXTRACTION_CURATED
+    assert record.source_section.startswith("§C")
+
+
+def test_curated_evidence_map_invents_no_evidence_type():
+    record = build_oc_208_evidence_map()
+    bracketed = set(re.findall(r"\[([a-z_]+)\]", record.text))
+    assert bracketed, "expected evidence type ids in the curated text"
+    assert bracketed <= evidence_type_ids()
+
+
+def test_curated_rgnb_table_carries_every_row():
+    record = build_oc_184b_rgnb_table()
+    rows = load_caps()["rgnb_responses"]["rows"]
+    assert len(rows) == 9
+    for row in rows:
+        assert row["code"] in record.text, f"{row['code']} missing from the curated RGNB table"
+        assert row["responder"] in record.text
+        if row["tat"]:
+            assert row["tat"] in record.text
+    assert "OC 184B" in record.text
+    assert record.extraction_method == EXTRACTION_CURATED
+
+
+@needs_corpus
+def test_curated_records_supplement_rather_than_replace(corpus):
+    """The OCR'd bodies must still be present; curation adds, it does not delete."""
+    by_id = {r.doc_id: r for r in corpus}
+    curated = [r for r in corpus if r.extraction_method == EXTRACTION_CURATED]
+    assert len(curated) == 2, "exactly the two verified tables should be curated"
+    for record in curated:
+        assert record.supersedes_doc_id in by_id, record.doc_id
+        superseded = by_id[record.supersedes_doc_id]
+        assert superseded.extraction_method == EXTRACTION_OCR
+        assert superseded.char_count > 0, "the flattened body must still hold its text"
+
+
+@needs_corpus
+def test_curated_records_carry_the_same_provenance_shape(corpus):
+    for record in (r for r in corpus if r.extraction_method == EXTRACTION_CURATED):
+        assert record.source_path.startswith("refs/circulars/"), record.doc_id
+        assert len(record.source_sha256) == 64, record.doc_id
+        assert record.source_section, record.doc_id
+        assert PAGE_MARKER_PATTERN.search(record.text), record.doc_id
+        assert record.page_count == len(record.pages)
+
+
+@needs_corpus
+def test_only_the_two_verified_tables_are_curated(corpus):
+    ids = {r.doc_id for r in corpus if r.extraction_method == EXTRACTION_CURATED}
+    assert ids == {"oc_208_sec_c_evidence_map_curated", "oc_184b_rgnb_response_table_curated"}
+
+
+@needs_corpus
+def test_every_source_circular_still_has_a_body_record(corpus):
+    """Adding curated records must not leave a circular represented only by a curated table."""
+    bodies = {Path(r.source_path).name for r in corpus if r.extraction_method != EXTRACTION_CURATED}
+    assert bodies == {p.name for p in source_pdfs()}
