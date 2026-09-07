@@ -1,0 +1,9 @@
+{
+  "dataset_version": "dataset-v1.0",
+  "locked_at": "2026-09-07T04:32:55.817168+00:00",
+  "generator_seed": 42,
+  "test_file": "test.jsonl",
+  "test_case_count": 300,
+  "sha256": "b3b2bd53bec5abe80fc1d84b298b6b1bceb5b3bd4150d3d602272fc231b29390",
+  "note": "The test split is locked. It must not be used for model, prompt or threshold selection. Regenerating the dataset with the same seed reproduces this hash; a different hash means the held-out set moved and any result measured on it is void."
+}

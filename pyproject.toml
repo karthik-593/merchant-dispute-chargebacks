@@ -5,6 +5,7 @@ description = "Evidence-grounded, cost-sensitive multi-agent system for UPI merc
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141.1",
+    "numpy>=2.4.6",
     "pydantic>=2.7",
     "pyyaml>=6.0",
     "uvicorn>=0.52.4",

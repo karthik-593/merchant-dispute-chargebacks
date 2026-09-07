@@ -5,3 +5,11 @@
 !.gitignore
 !seed/
 !seed/**
+
+# synthetic/ is generated and DVC-tracked: the .jsonl splits stay out of git, while the DVC
+# pointers and the human-readable card and test-set lock are committed so they are reviewable.
+!synthetic/
+!synthetic/.gitignore
+!synthetic/*.dvc
+!synthetic/DATASET_CARD.md
+!synthetic/TEST_SET_LOCK.json
