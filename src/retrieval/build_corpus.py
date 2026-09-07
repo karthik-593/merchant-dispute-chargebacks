@@ -12,6 +12,7 @@ from pathlib import Path
 
 from src.logging_setup import get_logger
 from src.retrieval.corpus_ingest import (
+    EXTRACTION_CURATED,
     EXTRACTION_MIXED,
     EXTRACTION_OCR,
     EXTRACTION_TEXT,
@@ -26,6 +27,7 @@ from src.retrieval.corpus_ingest import (
     write_corpus,
 )
 from src.retrieval.corpus_validation import CorpusReport, validate_corpus, validate_or_raise
+from src.retrieval.curated_records import build_curated_records
 
 log = get_logger(__name__)
 
@@ -35,6 +37,7 @@ CARD_NAME = "CORPUS_CARD.md"
 def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: str) -> str:
     """Render the corpus card from the documents actually ingested."""
     total = len(records)
+    sources = {record.source_path for record in records}
     methods = Counter(record.extraction_method for record in records)
     pages = sum(record.page_count for record in records)
     chars = sum(record.char_count for record in records)
@@ -60,7 +63,7 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         "",
         "## Extraction",
         "",
-        f"- **Documents**: {total}",
+        f"- **Records**: {total} over {len(sources)} source circulars",
         f"- **Pages**: {pages} ({ocr_pages} recognised by OCR)",
         f"- **Characters**: {chars:,}",
         f"- **OCR engine**: {ocr_engine}",
@@ -84,6 +87,39 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         f"| `mixed` | {methods.get(EXTRACTION_MIXED, 0)} | "
         f"{methods.get(EXTRACTION_MIXED, 0) / total:.1%} | text body with scanned pages "
         "(typically a cover or an annexure) |",
+        f"| `curated` | {methods.get(EXTRACTION_CURATED, 0)} | "
+        f"{methods.get(EXTRACTION_CURATED, 0) / total:.1%} | a table rebuilt from its verified "
+        "structured form, because OCR cannot render it usefully |",
+        "",
+        f"Records cover {len(sources)} source circulars: "
+        f"{len(sources)} extracted bodies plus {methods.get(EXTRACTION_CURATED, 0)} curated "
+        "table(s) attached to circulars that also have a body record.",
+        "",
+        "### Curated tables",
+        "",
+        "OCR flattens a table into running text, so the OC 208 §C evidence map and the OC 184B "
+        "RGNB response table both lose the association between a row and its columns. A chunk of "
+        "either reads as a stream of codes with no reliable link between a reason code and the "
+        "evidence that answers it — which retrieves as though it were an answer while being "
+        "unusable. Both are therefore also carried as curated records, rebuilt from the verified "
+        "structured form held in `configs/rulebook/`, so retrieval gets clean rows.",
+        "",
+        "**The OCR'd bodies are kept.** Nothing is deleted: the flattened table text is still in "
+        "the corpus and still cites its page. It is simply superseded for retrieval by the "
+        "curated record, which names what it replaces in `supersedes_doc_id` so the relationship "
+        "is machine-readable rather than a note in prose.",
+        "",
+        "| curated record | section | supersedes |",
+        "|---|---|---|",
+        *[
+            f"| `{r.doc_id}` | {r.source_section} | `{r.supersedes_doc_id}` |"
+            for r in sorted(records, key=lambda r: r.doc_id)
+            if r.extraction_method == EXTRACTION_CURATED
+        ],
+        "",
+        "Only these two are curated, and only because they are verified against source. Every "
+        "other table stays as OCR'd text until someone checks it: a curated record asserts that "
+        "a human confirmed it, and producing them casually would empty the label of meaning.",
         "",
         "## Per-document yield",
         "",
@@ -141,9 +177,10 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         f"the scanned documents average around {chars // max(pages, 1):,} characters per page, "
         "which is in the range of the born-digital ones, and no document fell under the "
         f"{LOW_YIELD_DOC_CHARS}-character review threshold.",
-        "- Tables are flattened. The evidence table in OC 208 §C and the RGNB table in OC 184B "
-        "become running text, losing their row and column structure. A chunker that splits mid-"
-        "table will produce misleading fragments; this needs attention when chunking is designed.",
+        "- Tables are flattened by OCR. The two that retrieval most depends on — OC 208 §C and "
+        "the OC 184B RGNB table — are addressed by the curated records above, but every other "
+        "table in the corpus is still running text. A chunker that splits mid-table will produce "
+        "misleading fragments; this needs attention when chunking is designed.",
         "- Recognition is English-only. Several RBI circulars carry a Hindi header, which is "
         "recognised as noise. It sits at the top of page 1 and does not affect the operative "
         "English text below it.",
@@ -187,6 +224,9 @@ def main(argv: list[str] | None = None) -> int:
             for failure in failures:
                 print(f"  - {failure}")
             return 1
+        curated = build_curated_records()
+        log.info("adding %d curated table record(s)", len(curated))
+        records = records + curated
         report = validate_or_raise(records)
         write_corpus(records, out)
         engine = reason

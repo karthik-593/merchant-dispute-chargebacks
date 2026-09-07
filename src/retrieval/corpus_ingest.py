@@ -50,6 +50,7 @@ BLANK_CHECK_DPI = 72
 EXTRACTION_TEXT = "text"
 EXTRACTION_OCR = "ocr"
 EXTRACTION_BLANK = "blank"
+EXTRACTION_CURATED = "curated"
 EXTRACTION_MIXED = "mixed"
 EXTRACTION_FAILED = "failed"
 
@@ -190,7 +191,18 @@ class DocumentRecord(BaseModel):
     title: str | None = Field(default=None, description="first substantive line of the document")
     source_path: str
     source_sha256: str
-    extraction_method: str = Field(description="text, ocr, mixed or failed")
+    source_section: str | None = Field(
+        default=None,
+        description="section of the circular this record covers, e.g. the evidence table",
+    )
+    supersedes_doc_id: str | None = Field(
+        default=None,
+        description=(
+            "a record this one is preferred over for retrieval; set on curated tables that "
+            "replace an OCR-flattened rendering, which is kept but no longer the best source"
+        ),
+    )
+    extraction_method: str = Field(description="text, ocr, mixed, curated or failed")
     page_count: int = Field(ge=0)
     char_count: int = Field(ge=0)
     pages: list[PageRecord]

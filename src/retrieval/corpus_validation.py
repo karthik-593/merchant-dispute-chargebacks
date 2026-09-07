@@ -18,6 +18,7 @@ from pathlib import Path
 
 from src.retrieval.corpus_ingest import (
     EXTRACTION_BLANK,
+    EXTRACTION_CURATED,
     EXTRACTION_MIXED,
     EXTRACTION_OCR,
     EXTRACTION_TEXT,
@@ -27,10 +28,21 @@ from src.retrieval.corpus_ingest import (
     source_pdfs,
 )
 
-VALID_METHODS = {EXTRACTION_TEXT, EXTRACTION_OCR, EXTRACTION_MIXED, EXTRACTION_BLANK}
+VALID_METHODS = {
+    EXTRACTION_TEXT,
+    EXTRACTION_OCR,
+    EXTRACTION_MIXED,
+    EXTRACTION_BLANK,
+    EXTRACTION_CURATED,
+}
 # Methods a whole document may be rolled up to. A document that is nothing but blank pages
 # would mean every page failed to yield anything, which is a problem rather than a document.
-VALID_DOCUMENT_METHODS = {EXTRACTION_TEXT, EXTRACTION_OCR, EXTRACTION_MIXED}
+VALID_DOCUMENT_METHODS = {
+    EXTRACTION_TEXT,
+    EXTRACTION_OCR,
+    EXTRACTION_MIXED,
+    EXTRACTION_CURATED,
+}
 
 # Only used to cross-check a parsed reference. Never used as the reference itself.
 FILENAME_HINT = re.compile(r"OC[_\- ]*(?:No[_\-. ]*)*([0-9]{2,3})[_\- ]*([A-C])?", re.I)
@@ -69,14 +81,32 @@ def validate_corpus(
     report = CorpusReport()
     sources = source_pdfs(source_directory)
 
-    # Every circular must produce exactly one record.
-    by_source = {Path(record.source_path).name: record for record in records}
+    # Every circular must produce at least one record. A circular may carry more than one once a
+    # curated table is added alongside the OCR'd body it supersedes.
+    source_names = {path.name for path in sources}
+    records_by_source: dict[str, list[DocumentRecord]] = {}
+    for record in records:
+        records_by_source.setdefault(Path(record.source_path).name, []).append(record)
+
     for path in sources:
-        if path.name not in by_source:
+        if path.name not in records_by_source:
             report.problems.append(f"{path.name}: no record was produced")
-    extra = set(by_source) - {path.name for path in sources}
-    for name in sorted(extra):
+    for name in sorted(set(records_by_source) - source_names):
         report.problems.append(f"{name}: record has no matching source PDF")
+
+    # A curated record must cite a body record that actually exists, or the supersession claim
+    # points at nothing and a reader cannot find what it replaced.
+    known_ids = {record.doc_id for record in records}
+    for record in records:
+        if record.supersedes_doc_id and record.supersedes_doc_id not in known_ids:
+            report.problems.append(
+                f"{record.doc_id}: supersedes {record.supersedes_doc_id!r}, which is not in the "
+                f"corpus"
+            )
+        if record.extraction_method == EXTRACTION_CURATED and not record.source_section:
+            report.problems.append(
+                f"{record.doc_id}: a curated record must name the section it covers"
+            )
 
     seen_ids: set[str] = set()
     for record in records:
@@ -124,22 +154,25 @@ def validate_corpus(
                 f"{doc}: page(s) {blank_pages} are blank in the source document (no ink), so "
                 f"they carry no text by design"
             )
-        if record.is_low_yield:
+        if record.is_low_yield and record.extraction_method != EXTRACTION_CURATED:
             report.review_flags.append(
                 f"{doc}: only {record.char_count} chars over {record.page_count} page(s) "
                 f"(< {LOW_YIELD_DOC_CHARS}); the scan may have OCR'd to near-nothing"
             )
-        if record.circular_ref is None:
-            report.review_flags.append(
-                f"{doc}: no circular reference could be parsed from the document text"
-            )
-        else:
-            hint = filename_hint(record.source_path)
-            if hint and hint.replace(" ", "") != record.circular_ref.replace(" ", ""):
+        # A curated record carries no printed reference of its own; it cites the section it
+        # covers instead, so the reference checks do not apply to it.
+        if record.extraction_method != EXTRACTION_CURATED:
+            if record.circular_ref is None:
                 report.review_flags.append(
-                    f"{doc}: parsed reference {record.circular_ref!r} disagrees with the "
-                    f"filename hint {hint!r}; OCR misreads digits, so confirm by eye"
+                    f"{doc}: no circular reference could be parsed from the document text"
                 )
+            else:
+                hint = filename_hint(record.source_path)
+                if hint and hint.replace(" ", "") != record.circular_ref.replace(" ", ""):
+                    report.review_flags.append(
+                        f"{doc}: parsed reference {record.circular_ref!r} disagrees with the "
+                        f"filename hint {hint!r}; OCR misreads digits, so confirm by eye"
+                    )
     return report
 
 
