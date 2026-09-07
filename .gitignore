@@ -22,6 +22,7 @@ dist/
 # Experiment tracking
 mlruns/
 mlartifacts/
+mlflow.db
 
 # DVC
 /.dvc/cache

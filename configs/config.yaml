@@ -18,7 +18,9 @@ paths:
   artifacts: data/artifacts
 
 mlflow:
-  tracking_uri: file:./mlruns
+  # MLflow 3.x puts the ./mlruns file store in maintenance mode and refuses to write to it,
+  # so runs go to a local SQLite backend. Browse with: mlflow ui --backend-store-uri sqlite:///mlflow.db
+  tracking_uri: sqlite:///mlflow.db
   experiment_name: upi-dispute-agent
 
 logging:
