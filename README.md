@@ -77,15 +77,34 @@ uv run pytest            # tests
 ```
 
 Datasets are tracked with DVC (`dvc pull` once a remote is configured); experiment runs are
-logged to MLflow at the tracking URI in `configs/config.yaml` (`mlflow ui` to browse).
+logged to MLflow at the tracking URI in `configs/config.yaml`
+(`mlflow ui --backend-store-uri sqlite:///mlflow.db` to browse).
+
+Run the thread:
+
+```bash
+uv run python -m src.evaluation.run_seed        # whole seed set, scored, logged to MLflow
+uv run python -m src.serving.cli --case seed_001 --json   # one case, full audit record
+uv run uvicorn app.main:app --reload            # POST /decide, docs at /docs
+```
 
 ## Status
 
-**M0 — project foundation.** Repository skeleton, tooling, configuration, and the source-circular
-corpus are in place. No domain, agent, or ML logic is implemented yet; `configs/rulebook/`
-contains the ported sufficiency map plus stubs for TAT, fees, caps, and the reject taxonomy.
+**M3 — vertical slice.** A dispute goes in and a rules-grounded FILE / CONCEDE / ESCALATE / RGNB
+decision comes out with an audit trail naming every rule that fired and the circular it came
+from. The thread runs end to end on the 40 hand-built `seed-v1` fixtures, served over HTTP and a
+CLI.
 
-Next: **M1** — port the remaining domain rules (TAT, fees, caps, reject taxonomy) into
-`configs/rulebook/`, each entry carrying its circular and section, then **M2** seed dataset and
-**M3** the vertical slice: a dispute goes in, a rules-grounded decision plus audit trail comes
-out.
+Everything in it is deterministic. This is baseline **B0**: the sufficiency engine and caps gate
+read `configs/rulebook/`, while the two LLM-shaped seams — narrative classification and evidence
+validity — are stubs behind interfaces (`PassthroughClassifier`, `StubVerifier`). No model is
+called, and no ML dependency is installed.
+
+Against the seed ground truth: **sufficiency 40/40, decision 36/40**. The four misses are the
+`CONTRADICTORY` cases, which need cross-artifact reasoning the stub verifier cannot do, so the
+ESCALATE branch is wired but unreachable. That gap is deliberate and is pinned by a test.
+
+`configs/rulebook/` now holds the sufficiency map and the caps config; `tat.yaml`, `fees.yaml`
+and `reject_taxonomy.yaml` are still stubs. Next: the retrieval corpus and the real classifier
+and verifier, after which ESCALATE becomes reachable and the decision policy can move from this
+deterministic mapping to the expected-value one.
