@@ -14,6 +14,7 @@ import yaml
 from src.config import project_path
 
 RULEBOOK_FILE = "reason_code_evidence.yaml"
+CAPS_FILE = "caps.yaml"
 
 
 @functools.cache
@@ -52,3 +53,38 @@ def txn_sub_type_ids() -> frozenset[str]:
 def merchant_type_branch_ids() -> frozenset[str]:
     """Merchant-type branch keys the rulebook declares for the declaration-letter rule."""
     return frozenset(load_rulebook()["merchant_type_rule"])
+
+
+@functools.cache
+def merchant_type_rule() -> dict[str, Any]:
+    """The declaration-letter substitution rule, by merchant-type branch."""
+    return dict(load_rulebook()["merchant_type_rule"])
+
+
+def resolve_reason_code_entry(reason_code: str, txn_sub_type: str) -> tuple[str, dict[str, Any]]:
+    """Find the one rulebook entry governing a (reason code, transaction sub-type) pair.
+
+    Pure lookup: reason codes 108 and 121 have separate P2M and P2P entries because they take
+    different evidence, so the sub-type is part of the key.
+
+    Raises:
+        KeyError: if the pair matches no entry, or more than one.
+    """
+    matches = {
+        key: entry
+        for key, entry in reason_code_entries().items()
+        if entry.get("code", key) == reason_code and txn_sub_type in entry.get("txn_sub_type", [])
+    }
+    if len(matches) != 1:
+        raise KeyError(
+            f"{reason_code}/{txn_sub_type} resolved to {sorted(matches)}; expected exactly one entry"
+        )
+    return next(iter(matches.items()))
+
+
+@functools.cache
+def load_caps() -> dict[str, Any]:
+    """Read and cache the chargeback caps config."""
+    path = project_path("rulebook") / CAPS_FILE
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)

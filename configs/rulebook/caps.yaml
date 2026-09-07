@@ -1,24 +1,47 @@
-# caps.yaml — chargeback volume caps and the negative-list / CCD gate.
-# STUB (M1 not started): no rules encoded yet.
+# caps.yaml — chargeback volume caps and the negative-chargeback gate.
 #
-# Feeds the deterministic caps gate in src/decision/ (L0), which runs BEFORE any chargeback is
-# raised: a capped customer or VPA pair routes to the RGNB path instead. Each entry MUST carry a
-# `source` naming the circular + section it comes from; verify it against refs/circulars/
-# before adding.
+# Feeds the deterministic caps gate in src/decision/ (L0), which runs BEFORE the evidence
+# question: a capped customer or VPA pair routes to the RGNB path regardless of how strong the
+# evidence is. Every entry carries a `source` naming the circular it comes from.
 #
-# Expected shape (illustrative only — do not treat as encoded rules):
-#   <cap_id>:
-#     description: "..."
-#     scope: "..."          # what the count is keyed on
-#     limit: <int>
-#     window_days: <int>
-#     on_breach: "..."      # decline code / routing
-#     exemptions: ["..."]
-#     source: "OC ___ §___"
+# Counter semantics: `counter_field` names the field on the dispute record holding the number of
+# chargebacks ALREADY raised in the rolling window. Reaching `limit` means the next chargeback is
+# declined, so the gate fires when counter >= limit.
 
 meta:
-  version: "0.0"
-  status: stub
-  source: "TODO: OC 184, OC 184A, OC 184B — pending M1 port"
+  version: "1.0"
+  status: active
+  primary_source: "OC 184 (caps, CCD/CD1/CD2); OC 184A (fraud exemption); OC 184B (RGNB path)"
 
-caps: {}
+caps:
+  CD1:
+    description: "Per-customer chargeback cap, keyed on IFSC + account number"
+    scope: "payer_ifsc + payer_account"
+    counter_field: chargeback_count_ifsc_acct
+    limit: 10
+    window_days: 30
+    decline_code: CD1
+    dispute_flag: CCD
+    source: "OC 184"
+
+  CD2:
+    description: "Per-pair chargeback cap, keyed on payer VPA to payee VPA"
+    scope: "payer_vpa -> payee_vpa"
+    counter_field: chargeback_count_vpa_pair
+    limit: 5
+    window_days: 30
+    decline_code: CD2
+    dispute_flag: CCD
+    source: "OC 184"
+
+exemptions:
+  fraud:
+    description: "Fraud transactions are exempt from both caps."
+    field: fraud_flag
+    source: "OC 184A"
+
+on_breach:
+  path: RGNB
+  description: "A genuine claim blocked by a cap takes the remitter good-faith negative
+                chargeback route; front-end only, no NPCI whitelisting."
+  source: "OC 184B"
