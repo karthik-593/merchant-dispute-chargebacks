@@ -139,7 +139,7 @@ Measured on the generated set by `src/data/analyze_outcomes.py`. The point of th
 
 - ABSENT: p75-p25 spread 0.076 < 0.1
 
-These are recorded rather than corrected. A narrow spread inside a bucket means the modelled probabilities there are bunched, so within that bucket there is little for a scorer to separate; treat per-bucket skill claims on it with suspicion until the noise model is revisited.
+`ABSENT`'s tight spread is intentional and correct: a case with no valid evidence has no corroboration signal to vary, so these cluster low by design. It is not a degenerate bucket — 44 of 578 still won, over a 0.02 to 0.58 range.
 
 ## Splits
 
