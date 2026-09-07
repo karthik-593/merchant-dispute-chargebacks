@@ -20,3 +20,6 @@
 !corpus/.gitignore
 !corpus/*.dvc
 !corpus/CORPUS_CARD.md
+# the retrieval query set is hand-labelled ground truth: small, and its worth is that it
+# stays reviewable in a diff, so it lives in git like the seed fixtures do.
+!corpus/retrieval_queries.yaml

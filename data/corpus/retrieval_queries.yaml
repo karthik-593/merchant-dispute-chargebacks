@@ -1,0 +1,272 @@
+# retrieval_queries.yaml — the scoring target for retrieval experiments.
+#
+# Hand-labelled, and FROZEN before any chunker was tuned. Building the queries after seeing which
+# chunker wins would let the target drift toward whatever the chunker happens to do well, which
+# is how a chunking experiment quietly stops measuring anything.
+#
+# Each query names:
+#   target_doc_ids  — a retrieved chunk from any of these counts as a document-level hit. Where a
+#                     curated record and the OCR'd body of the same circular both answer, both are
+#                     listed: the question is which chunker surfaces the answer, not which record
+#                     the corpus happens to hold it in.
+#   target_section  — the human label for where the answer lives. Descriptive, for reading the
+#                     results; the scoring uses the anchors.
+#   answer_anchors  — literal strings, matched case-insensitively, that a chunk must ALL contain
+#                     to count as actually carrying the answer. This is what separates "retrieved
+#                     the right document" from "retrieved the passage that answers the question",
+#                     which is the whole point of comparing chunkers.
+#
+# Every anchor was checked against the corpus text it targets before this set was frozen, so
+# every query is answerable by at least one chunk under at least one chunking strategy.
+
+meta:
+  version: "retrieval-v1"
+  frozen: true
+  query_count: 26
+  corpus: "data/corpus/circulars.jsonl"
+  note: "Targets derive from the corpus and the domain spec. Anchors are matched
+         case-insensitively against chunk text, with whitespace collapsed."
+
+queries:
+  # --- evidence by reason code (OC 208 §C) -----------------------------------------------
+  - id: q01
+    question: "What evidence can the acquirer file for RC 1064 on a P2M transaction?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_1064 block"
+    answer_anchors: ["RC_1064", "invoice_with_proof_of_delivery"]
+
+  - id: q02
+    question: "For a P2M dispute where the merchant says it was never credited, what evidence
+               does RC 108 accept?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_108 U2 block"
+    answer_anchors: ["RC_108 (U2)", "cbs_screenshot_credit_merchant"]
+
+  - id: q03
+    question: "On a person-to-person transfer, what proves the beneficiary was credited under
+               RC 108?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_108 U3/UC block"
+    answer_anchors: ["RC_108 (U3, UC)", "cbs_screenshot_credit_beneficiary"]
+
+  - id: q04
+    question: "The customer was charged twice for one order. What evidence answers a duplicate
+               transaction chargeback?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_1084 block"
+    answer_anchors: ["RC_1084", "proof_duplicate_not_same_goods"]
+
+  - id: q05
+    question: "Account debited but no confirmation at the merchant counter — what evidence is
+               accepted?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_1065 block"
+    answer_anchors: ["RC_1065", "charge_slip"]
+
+  - id: q06
+    question: "Credit not processed for cancelled or returned goods — what can the merchant
+               submit?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_1061 block"
+    answer_anchors: ["RC_1061", "proof_goods_not_returned"]
+
+  - id: q07
+    question: "A TCC was raised but the customer still disputes the credit on a merchant payment.
+               What evidence does RC 121 require?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_121 U2 block"
+    answer_anchors: ["RC_121 (U2)", "cbs_screenshot_credit_merchant"]
+
+  - id: q08
+    question: "Which evidence types satisfy a claim that the goods were as described and in good
+               condition?"
+    topic: evidence_by_reason_code
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C, RC_1062 block"
+    answer_anchors: ["RC_1062", "doc_goods_as_described"]
+
+  - id: q09
+    question: "When does the verdict go to the remitter regardless of what evidence was filed?"
+    topic: auto_loss
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208 §C(b), auto-loss conditions"
+    answer_anchors: ["auto-loss", "illegible"]
+
+  # --- small and offline merchants -------------------------------------------------------
+  - id: q10
+    question: "A roadside merchant cannot produce an invoice. What can the acquirer file instead?"
+    topic: small_offline
+    target_doc_ids:
+      - oc_208_sec_c_evidence_map_curated
+      - upi_oc_172_evidence_towords_upi_dispute_on_small_and_offline_merchants_5e0d80669
+    target_section: "OC 172; OC 208 §C(a) and §D, merchant-type rule"
+    answer_anchors: ["acquirer_declaration_letter"]
+
+  - id: q11
+    question: "Why are small and offline merchants treated differently for dispute evidence?"
+    topic: small_offline
+    target_doc_ids:
+      - upi_oc_172_evidence_towords_upi_dispute_on_small_and_offline_merchants_5e0d80669
+    target_section: "OC 172, body"
+    answer_anchors: ["small and offline", "acquirer bank"]
+
+  # --- RGNB response table (OC 184B) -----------------------------------------------------
+  - id: q12
+    question: "How long does the beneficiary bank have to respond when it accepts an RGNB on a
+               P2M transaction?"
+    topic: rgnb
+    target_doc_ids:
+      - oc_184b_rgnb_response_table_curated
+      - upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul
+    target_section: "OC 184B, row NA2"
+    answer_anchors: ["NA2", "15 calendar days"]
+
+  - id: q13
+    question: "What happens on an RGNB if the beneficiary bank does not respond at all on a P2P
+               transfer?"
+    topic: rgnb
+    target_doc_ids:
+      - oc_184b_rgnb_response_table_curated
+      - upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul
+    target_section: "OC 184B, row ND1"
+    answer_anchors: ["ND1", "3 calendar days"]
+
+  - id: q14
+    question: "Which RGNB code does the beneficiary use to reject because the refund was already
+               processed?"
+    topic: rgnb
+    target_doc_ids:
+      - oc_184b_rgnb_response_table_curated
+      - upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul
+    target_section: "OC 184B, row NR3"
+    answer_anchors: ["NR3", "refund already processed"]
+
+  # --- caps (OC 184) ---------------------------------------------------------------------
+  - id: q15
+    question: "How many chargebacks can one customer raise in a rolling 30 days before they are
+               declined?"
+    topic: caps
+    target_doc_ids:
+      - upi_oc_no_184_fy_23_24_modification_in_upi_chargeback_rules_and_procedures_bdfd9
+    target_section: "OC 184, CD1 cap"
+    answer_anchors: ["CD1"]
+
+  - id: q16
+    question: "What is the chargeback limit for a single payer-payee VPA pair?"
+    topic: caps
+    target_doc_ids:
+      - upi_oc_no_184_fy_23_24_modification_in_upi_chargeback_rules_and_procedures_bdfd9
+    target_section: "OC 184, CD2 cap"
+    answer_anchors: ["CD2"]
+
+  # --- turnaround times ------------------------------------------------------------------
+  - id: q17
+    question: "How long does a customer have to raise a UPI chargeback?"
+    topic: tat
+    target_doc_ids:
+      - upi_oc_no_198_fy_24_25_revision_of_disputes_tat_7863285dd6
+    target_section: "OC 198, revised disputes TAT"
+    answer_anchors: ["45"]
+
+  - id: q18
+    question: "What is the response turnaround time for a fraud or wrong-credit chargeback?"
+    topic: tat
+    target_doc_ids:
+      - upi_oc_no_235_fy_2026_27_revision_of_turnaround_time_tat_for_responding_to_fraud
+    target_section: "OC 235, revised TAT"
+    answer_anchors: ["15"]
+
+  - id: q19
+    question: "How many days does the remitting bank get to raise a PRD after the NRP verdict?"
+    topic: tat
+    target_doc_ids:
+      - upi_oc_no_208_a_fy_2025_26_addendum_to_oc_208_implementation_of_nrp_prd_process_
+    target_section: "OC 208A, revised PRD raise TAT"
+    answer_anchors: ["5 calendar days"]
+
+  # --- evidence window (OC 208C) ---------------------------------------------------------
+  - id: q20
+    question: "Up to which stage of the dispute can evidence still be uploaded?"
+    topic: evidence_window
+    target_doc_ids:
+      - upi_oc_no_208c_fy_2026_27_addendum_to_oc_208_208a_208b_implementation_of_nrp_prd
+    target_section: "OC 208C, evidence upload window"
+    answer_anchors: ["pre-arbitration"]
+
+  # --- fees ------------------------------------------------------------------------------
+  - id: q21
+    question: "What does it cost to take a dispute to the NPCI review panel?"
+    topic: fees
+    target_doc_ids:
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208, NRP fee"
+    answer_anchors: ["500"]
+
+  - id: q22
+    question: "What is the fee for raising a panel for resolution of disputes?"
+    topic: fees
+    target_doc_ids:
+      - upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines
+    target_section: "OC 208, PRD fee"
+    answer_anchors: ["3,000"]
+
+  - id: q23
+    question: "Is interchange fee charged on dispute and adjustment transactions?"
+    topic: fees
+    target_doc_ids:
+      - upi_oc_160_disabling_interchange_fee_movement_in_dispute_and_adjustment_life_cyc
+    target_section: "OC 160, interchange disabled"
+    answer_anchors: ["interchange"]
+
+  # --- deemed approval, reject reasons, RBI compensation ---------------------------------
+  - id: q24
+    question: "What changes when the acquiring PSP and the merchant's bank are the same
+               institution?"
+    topic: deemed_approval
+    target_doc_ids:
+      - upi_oc_no_39_a_fy_2025_26_handling_of_deemed_approval_deemed_acceptance_or_da_st
+    target_section: "OC 39A, deemed approval for P2M"
+    answer_anchors: ["deemed approval"]
+
+  - id: q25
+    question: "On what grounds does the review panel reject a submission as an invalid generic
+               statement?"
+    topic: reject_reasons
+    target_doc_ids:
+      - upi_oc_no_208_a_fy_2025_26_addendum_to_oc_208_implementation_of_nrp_prd_process_
+    target_section: "OC 208A Annexure A, reason code 1142"
+    answer_anchors: ["generic statements"]
+
+  - id: q26
+    question: "How much compensation is payable when a failed UPI transaction is not reversed in
+               time?"
+    topic: compensation
+    target_doc_ids:
+      - circular677ec931a7a65e4d99aa957d8e85bc0a2a
+    target_section: "RBI/2019-20/67, item 4 (UPI)"
+    answer_anchors: ["100/-"]
