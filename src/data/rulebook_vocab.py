@@ -15,6 +15,7 @@ from src.config import project_path
 
 RULEBOOK_FILE = "reason_code_evidence.yaml"
 CAPS_FILE = "caps.yaml"
+REJECT_TAXONOMY_FILE = "reject_taxonomy.yaml"
 
 
 @functools.cache
@@ -88,3 +89,17 @@ def load_caps() -> dict[str, Any]:
     path = project_path("rulebook") / CAPS_FILE
     with path.open(encoding="utf-8") as handle:
         return yaml.safe_load(handle)
+
+
+@functools.cache
+def load_reject_taxonomy() -> dict[str, Any]:
+    """Read and cache the NRP verdict reason codes transcribed from OC 208A Annexure A."""
+    path = project_path("rulebook") / REJECT_TAXONOMY_FILE
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+@functools.cache
+def nrp_verdict_reason_codes() -> dict[str, dict[str, Any]]:
+    """NRP verdict reason codes by code, as declared by the reject taxonomy."""
+    return {entry["code"]: entry for entry in load_reject_taxonomy()["nrp_verdict_reason_codes"]}

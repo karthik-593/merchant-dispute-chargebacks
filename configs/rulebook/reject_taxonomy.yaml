@@ -1,20 +1,163 @@
-# reject_taxonomy.yaml — invalid-reason / rejection codes for chargebacks and representments.
-# STUB (M1 not started): no rules encoded yet.
+# reject_taxonomy.yaml — NRP verdict reason codes.
 #
-# Feeds the L0 pre-file validity gate and the L4 verifier's hard gates: a representment that
-# would trip a listed invalid reason must not be filed. Each entry MUST carry a `source` naming
-# the circular + section it comes from; verify it against refs/circulars/ before adding.
+# Feeds the L0 pre-file validity gate and the L4 verifier's hard gates: a representment that would
+# trip one of these must not be filed. Each entry is transcribed from the source circular and
+# carries its own `source`.
 #
-# Expected shape (illustrative only — do not treat as encoded rules):
-#   <reject_code>:
-#     description: "..."
-#     applies_to: ["..."]   # lifecycle stage(s)
-#     detectable_by: deterministic | verifier
-#     source: "OC ___ Annexure ___"
+# PROVENANCE. OC 208A is an image scan with no text layer, so Annexure A was recovered by OCR
+# (Tesseract 5.4, 300-500 dpi, several page-segmentation passes). Every code and description below
+# was read off that recognised text; nothing is inferred from the reason code's number or from
+# what a code "ought" to say. Where OCR misread a digit, the correction is recorded in
+# meta.transcription.corrections rather than made silently, and anything still uncertain is marked
+# with `transcription_note` on the entry itself.
+#
+# Scope: the NRP verdict block, codes 1130-1157. The same annexure also lists arbitration
+# continuation codes (1105-1107) and codes 1126-1129, but OCR could not reliably attribute those
+# rows to their block heading, so they are deliberately left out rather than guessed at.
 
 meta:
-  version: "0.0"
-  status: stub
-  source: "TODO: OC 208A Annexure A (invalid reason codes), OC 208 §C(b) — pending M1 port"
+  version: "1.0"
+  status: active
+  primary_source: "OC 208A Annexure A (New Dispute Flags & Reason Codes)"
+  circular: "NPCI/UPI/OC 208A/2025-26, 30 Jun 2025"
+  covers: "NRP verdict reason codes 1130-1157"
+  transcription:
+    method: "OCR of the scanned Annexure A table; row alignment recovered across several passes"
+    corrections:
+      - "1146, 1147, 1156: OCR read the leading digit as '4'; corrected from the table sequence"
+      - "1154: OCR read the code as '1184'; corrected from the sequence and the table's
+         alphabetical ordering by description"
+      - "1140: OCR produced 'Ilagible' / 'liiegibie'; read as 'Illegible'"
+    not_transcribed:
+      - "1105-1107 (arbitration continuation) and 1126-1129: present in the annexure but their
+         block heading could not be resolved from the scan"
+      - "1128: no row recovered"
+    note: "OC 208A also records that reason code 1102 ('Customer has still not received the
+           service') was removed from Arbitration Continuation."
 
-reject_reasons: {}
+# ---------------------------------------------------------------------------
+# Codes 1130-1132 record a rejection the panel accepts. Everything from 1133
+# onward describes a defective or invalid submission — those are the ones the
+# verifier exists to catch before anything is filed.
+# ---------------------------------------------------------------------------
+nrp_verdict_reason_codes:
+  - code: "1130"
+    description: "Beneficiary customer account credited successfully"
+    source: "OC 208A Annexure A"
+
+  - code: "1131"
+    description: "Goods/Services fulfilled to customer in good condition and as per the order"
+    source: "OC 208A Annexure A"
+
+  - code: "1132"
+    description: "Rejection document of merchant accepting dispute"
+    source: "OC 208A Annexure A"
+    transcription_note: "OCR gave 'Rejection document a merchant accepting dispute'; the
+                         connecting word is uncertain, the sense is not"
+
+  - code: "1133"
+    description: "Blurry evidence"
+    source: "OC 208A Annexure A"
+
+  - code: "1134"
+    description: "CBS details provided in editable file instead of CBS screenshot"
+    source: "OC 208A Annexure A"
+
+  - code: "1135"
+    description: "CBS screenshot uploaded without last digits of beneficiary account"
+    source: "OC 208A Annexure A"
+
+  - code: "1136"
+    description: "CBS screenshot uploaded without TXN details"
+    source: "OC 208A Annexure A"
+
+  - code: "1137"
+    description: "Details in the rejection document are not matching with dispute details"
+    source: "OC 208A Annexure A"
+
+  - code: "1138"
+    description: "Uploaded evidence is blank"
+    source: "OC 208A Annexure A"
+
+  - code: "1139"
+    description: "Goods/services fulfilment declaration letter uploaded which is invalid as
+                  merchant does not pertain to Small/Offline category"
+    source: "OC 208A Annexure A"
+
+  - code: "1140"
+    description: "Illegible evidence"
+    source: "OC 208A Annexure A"
+
+  - code: "1141"
+    description: "Invalid document which does not address the customer dispute"
+    source: "OC 208A Annexure A"
+
+  - code: "1142"
+    description: "Invalid evidence consisting generic statements"
+    source: "OC 208A Annexure A"
+
+  - code: "1143"
+    description: "Merchant fraudulent"
+    source: "OC 208A Annexure A"
+
+  - code: "1144"
+    description: "No/Partial/Incorrect refund details present in the rejection document"
+    source: "OC 208A Annexure A"
+
+  - code: "1145"
+    description: "No evidence has been provided"
+    source: "OC 208A Annexure A"
+
+  - code: "1146"
+    description: "Only door-delivery details attached as rejection document which is invalid
+                  because no TXN details present"
+    source: "OC 208A Annexure A"
+
+  - code: "1147"
+    description: "Only merchant details provided not about the fulfilment of goods/services
+                  provided"
+    source: "OC 208A Annexure A"
+
+  - code: "1148"
+    description: "Others"
+    source: "OC 208A Annexure A"
+
+  - code: "1149"
+    description: "Rejection document of partial refund uploaded but the customer is disputing
+                  for the balance amount"
+    source: "OC 208A Annexure A"
+
+  - code: "1150"
+    description: "Rejection reason mentioned as customer account closed/freeze/lien marked which
+                  is invalid reason"
+    source: "OC 208A Annexure A"
+
+  - code: "1151"
+    description: "Rejection reason mentioned as customer not giving debit consent which is
+                  invalid reason"
+    source: "OC 208A Annexure A"
+
+  - code: "1152"
+    description: "Rejection reason mentioned as customer not in contact which is invalid reason"
+    source: "OC 208A Annexure A"
+
+  - code: "1153"
+    description: "Rejection reason mentioned as merchant is black-listed/fraudulent which is
+                  invalid reason"
+    source: "OC 208A Annexure A"
+
+  - code: "1154"
+    description: "The refund has failed as per the refund details in the rejection document"
+    source: "OC 208A Annexure A"
+
+  - code: "1155"
+    description: "TXN details not matching with invoice details"
+    source: "OC 208A Annexure A"
+
+  - code: "1156"
+    description: "TXN status in the rejection document is showing cancelled/pending/failed"
+    source: "OC 208A Annexure A"
+
+  - code: "1157"
+    description: "Uploaded rejection document does not pertain to the dispute"
+    source: "OC 208A Annexure A"
