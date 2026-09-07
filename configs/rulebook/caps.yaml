@@ -45,3 +45,80 @@ on_breach:
   description: "A genuine claim blocked by a cap takes the remitter good-faith negative
                 chargeback route; front-end only, no NPCI whitelisting."
   source: "OC 184B"
+
+# ---------------------------------------------------------------------------
+# RGNB response table: flags, codes, responder and response TAT for the
+# remitter good-faith negative chargeback path taken when a cap blocks a
+# genuine claim. Ported verbatim from the domain spec; every row is OC 184B.
+#
+# This is also the curated, structured form of the table that OCR flattens in
+# the scanned OC 184B PDF. src/retrieval/curated_records.py renders it into a
+# corpus record so retrieval gets clean rows instead of running text.
+# ---------------------------------------------------------------------------
+rgnb_responses:
+  source: "OC 184B"
+  note: "No response within TAT means deemed acceptance and the refund is processed."
+  rows:
+    - flag: RGNB
+      code: NB1
+      txn: "P2P U3"
+      meaning: "Valid P2P chargeback (not a negative chargeback)"
+      responder: "Remitting/Issuing bank raises"
+      tat: null
+      penalty: null
+    - flag: RGNB
+      code: NB2
+      txn: "P2M U2"
+      meaning: "Valid P2M chargeback"
+      responder: "Remitting/Issuing bank raises"
+      tat: null
+      penalty: null
+    - flag: BGNA
+      code: NA1
+      txn: "P2P U3"
+      meaning: "Beneficiary accepts"
+      responder: "Beneficiary/Acquiring"
+      tat: "3 calendar days"
+      penalty: "mandatory"
+    - flag: BGNA
+      code: NA2
+      txn: "P2M U2"
+      meaning: "Beneficiary accepts"
+      responder: "Beneficiary/Acquiring"
+      tat: "15 calendar days"
+      penalty: "bank's choice"
+    - flag: BGNR
+      code: NR1
+      txn: "P2P U3"
+      meaning: "Beneficiary rejects - amount already credited"
+      responder: "Beneficiary/Acquiring"
+      tat: "3 calendar days"
+      penalty: null
+    - flag: BGNR
+      code: NR2
+      txn: "P2M U2"
+      meaning: "Beneficiary rejects - goods/service already provided"
+      responder: "Beneficiary/Acquiring"
+      tat: "15 calendar days"
+      penalty: null
+    - flag: BGNR
+      code: NR3
+      txn: "P2M U2"
+      meaning: "Beneficiary rejects - refund already processed"
+      responder: "Beneficiary/Acquiring"
+      tat: "15 calendar days"
+      penalty: null
+    - flag: BGND
+      code: ND1
+      txn: "P2P U3"
+      meaning: "Deemed acceptance (no response)"
+      responder: "URCS"
+      tat: "3 calendar days"
+      penalty: "mandatory"
+    - flag: BGND
+      code: ND2
+      txn: "P2M U2"
+      meaning: "Deemed acceptance (no response)"
+      responder: "URCS"
+      tat: "15 calendar days"
+      penalty: "mandatory"
