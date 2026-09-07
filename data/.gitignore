@@ -13,3 +13,10 @@
 !synthetic/*.dvc
 !synthetic/DATASET_CARD.md
 !synthetic/TEST_SET_LOCK.json
+
+# corpus/ is the ingested circulars, derived and DVC-tracked on the same terms: the JSONL stays
+# out of git, the pointer and the card are committed.
+!corpus/
+!corpus/.gitignore
+!corpus/*.dvc
+!corpus/CORPUS_CARD.md

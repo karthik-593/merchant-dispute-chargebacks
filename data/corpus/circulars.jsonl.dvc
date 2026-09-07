@@ -1,0 +1,5 @@
+outs:
+- md5: 3991ac7f817442b43e4d8dc247811748
+  size: 526686
+  hash: md5
+  path: circulars.jsonl
