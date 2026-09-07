@@ -135,11 +135,13 @@ def check_engine_agreement(generated: list[GeneratedCase]) -> CheckResult:
     )
 
 
-def _seed_contradictions(case: SeedCase) -> list[Contradiction]:
-    """Contradictions implied by a seed case's hand-assigned class.
+def contradictions_from_class(case: SeedCase) -> list[Contradiction]:
+    """Reconstruct a case's planted contradictions from its hard-case class.
 
-    Reads `hard_case_class`, which the engine may never do. That is legitimate here: this is a
-    check harness comparing two labellings, not a decision path.
+    Needed wherever a checker has the case but not the generator's in-memory record of what it
+    planted — reading a dataset back off disk, for instance. Reads `hard_case_class`, which the
+    engine may never do; that is legitimate here, because this is a check harness comparing two
+    labellings rather than a decision path.
     """
     if case.hard_case_class is not HardCaseClass.CONTRADICTORY or len(case.evidence) < 2:
         return []
@@ -160,7 +162,9 @@ def check_seed_reproduction(cases: list[SeedCase] | None = None) -> CheckResult:
     unexpected: list[Mismatch] = []
 
     for case in seed_cases:
-        sufficiency, decision, _, _ = label(case.dispute, case.evidence, _seed_contradictions(case))
+        sufficiency, decision, _, _ = label(
+            case.dispute, case.evidence, contradictions_from_class(case)
+        )
         truth = case.ground_truth
 
         if sufficiency is truth.expected_sufficiency:

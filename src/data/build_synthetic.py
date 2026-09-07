@@ -11,10 +11,22 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
-from src.data.generator import DATASET_VERSION, SyntheticGenerator, load_generator_config
+from src.data.analyze_outcomes import (
+    collect_flags,
+    markdown_bucket_table,
+    stats_by_decision,
+    stats_by_sufficiency,
+)
+from src.data.generator import (
+    DATASET_VERSION,
+    GeneratedCase,
+    SyntheticGenerator,
+    load_generator_config,
+)
 from src.data.schemas import Decision, HardCaseClass, SeedCase
 from src.data.synthetic_dataset import (
     DatasetSplits,
+    load_splits,
     synthetic_dir,
     temporal_split,
     write_jsonl,
@@ -23,6 +35,7 @@ from src.data.synthetic_dataset import (
 from src.data.validation import validate_dataset
 from src.evaluation.generator_sync import (
     CheckResult,
+    contradictions_from_class,
     check_engine_agreement,
     check_seed_reproduction,
 )
@@ -39,6 +52,29 @@ def _table(title: str, counts: Counter, total: int, header: str = "value") -> li
         lines.append(f"| `{key}` | {count} | {count / total:.1%} |")
     lines.append("")
     return lines
+
+
+def _calibration_notes(cases: list[SeedCase]) -> list[str]:
+    """Commentary on any calibration flag the diagnostics raise."""
+    flags = collect_flags(stats_by_sufficiency(cases)) + collect_flags(stats_by_decision(cases))
+    if not flags:
+        return [
+            "No bucket is flagged: every one sits inside the 5-95% win-rate band and keeps an "
+            "interquartile spread of at least 0.10.",
+            "",
+        ]
+    return [
+        "**Flagged buckets.** The diagnostics warn where a bucket's win rate falls outside 5-95% "
+        "or its interquartile spread drops below 0.10:",
+        "",
+        *[f"- {flag}" for flag in flags],
+        "",
+        "These are recorded rather than corrected. A narrow spread inside a bucket means the "
+        "modelled probabilities there are bunched, so within that bucket there is little for a "
+        "scorer to separate; treat per-bucket skill claims on it with suspicion until the noise "
+        "model is revisited.",
+        "",
+    ]
 
 
 def build_card(
@@ -178,6 +214,20 @@ def build_card(
         f"{won}/{total} = {won / total:.1%}, with modelled probabilities spanning "
         f"{min(probs):.2f} to {max(probs):.2f} (mean {sum(probs) / len(probs):.2f}).",
         "",
+        "## Outcome calibration",
+        "",
+        "Measured on the generated set by `src/data/analyze_outcomes.py`. The point of these "
+        "tables is to show the outcome label is neither trivial nor degenerate: if a bucket won "
+        "almost always or almost never, or its probabilities were bunched into a narrow band, a "
+        "scorer could recover the outcome from the bucket alone and report skill it does not have.",
+        "",
+        "### By expected sufficiency",
+        "",
+        *markdown_bucket_table(stats_by_sufficiency(cases), "sufficiency"),
+        "### By expected decision",
+        "",
+        *markdown_bucket_table(stats_by_decision(cases), "decision"),
+        *_calibration_notes(cases),
         "## Splits",
         "",
         "**Temporal, by `txn_timestamp`.** Cases are ordered by transaction time and cut, so the "
@@ -234,9 +284,39 @@ def build_card(
         "- Deemed approval is carried as metadata and deliberately changes no outcome, matching "
         "the engine. When the presumption is given weight in the policy, this dataset will need "
         "regenerating.",
+        "- **P2P is intentionally thin.** U3 and UC together are about 14% of the set, which "
+        "reflects the real mix rather than an oversight, and the rulebook gives P2P only two "
+        "reason codes (RC 108 and RC 121) against ten for P2M. Per-type metrics on P2P will "
+        "therefore be high-variance, and the thinnest reason-code-by-decision cells hold only a "
+        "handful of cases. This is flagged for reporting in the final evaluation — confidence "
+        "intervals on P2P slices must be shown rather than point estimates — and is deliberately "
+        "not corrected by rebalancing, which would misrepresent the population.",
         "",
     ]
     return "\n".join(lines)
+
+
+def _rewrite_card(out: Path, config: dict) -> int:
+    """Rebuild the card from the splits already written, leaving the data and lock untouched.
+
+    Regenerating would rewrite the test set and its lock; refreshing the documentation alone
+    should never do that.
+    """
+    splits = load_splits(out)
+    cases = splits.train + splits.val + splits.test
+    # The splits on disk do not carry the generator's record of what it planted, so the
+    # contradictions are reconstructed from each case's class before Check A runs.
+    generated = [
+        GeneratedCase(case=case, contradictions=contradictions_from_class(case))
+        for case in cases
+    ]
+    check_a = check_engine_agreement(generated)
+    check_b = check_seed_reproduction()
+    (out / CARD_NAME).write_text(
+        build_card(cases, splits, check_a, check_b, config), encoding="utf-8"
+    )
+    print(f"card rewritten from the existing splits in {out} ({len(cases)} cases); data untouched")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -245,9 +325,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("-n", "--cases", type=int, default=None, help="override the case count")
     parser.add_argument("--seed", type=int, default=None, help="override the generator seed")
     parser.add_argument("--out", type=Path, default=None, help="output directory")
+    parser.add_argument(
+        "--card-only",
+        action="store_true",
+        help="rewrite the dataset card from the splits already on disk, touching no data",
+    )
     args = parser.parse_args(argv)
 
     config = load_generator_config()
+    if args.card_only:
+        return _rewrite_card(args.out or synthetic_dir(), config)
+
     generator = SyntheticGenerator(seed=args.seed)
     generated = generator.generate(args.cases)
     cases = [item.case for item in generated]

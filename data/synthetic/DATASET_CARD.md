@@ -114,6 +114,33 @@ Base logits: STRONG 1.55, WEAK -1.3, ABSENT -2.6.
 
 Three deliberate properties. **Adjudicator variance** means two identical evidence bundles can land differently, because two panels do. **Corroboration** rewards a second valid artifact, so evidence strength is graded rather than binary. **The floor and ceiling** keep any case from being a certainty, so a scorer cannot reach a perfect AUC by memorising the sufficiency label — which is the whole point of injecting noise at all. Realised win rate across the set is 917/2000 = 45.9%, with modelled probabilities spanning 0.02 to 0.97 (mean 0.47).
 
+## Outcome calibration
+
+Measured on the generated set by `src/data/analyze_outcomes.py`. The point of these tables is to show the outcome label is neither trivial nor degenerate: if a bucket won almost always or almost never, or its probabilities were bunched into a narrow band, a scorer could recover the outcome from the bucket alone and report skill it does not have.
+
+### By expected sufficiency
+
+| sufficiency | cases | won | win rate | mean p | min | p25 | median | p75 | max | p75-p25 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `STRONG` | 1008 | 777 | 77.1% | 0.780 | 0.123 | 0.704 | 0.815 | 0.890 | 0.970 | 0.187 |
+| `WEAK` | 414 | 96 | 23.2% | 0.239 | 0.026 | 0.128 | 0.208 | 0.313 | 0.775 | 0.185 |
+| `ABSENT` | 578 | 44 | 7.6% | 0.091 | 0.020 | 0.041 | 0.070 | 0.117 | 0.580 | 0.076 |
+
+### By expected decision
+
+| decision | cases | won | win rate | mean p | min | p25 | median | p75 | max | p75-p25 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `FILE` | 779 | 621 | 79.7% | 0.805 | 0.231 | 0.735 | 0.836 | 0.901 | 0.970 | 0.166 |
+| `CONCEDE` | 992 | 140 | 14.1% | 0.153 | 0.020 | 0.058 | 0.113 | 0.208 | 0.775 | 0.149 |
+| `ESCALATE` | 173 | 112 | 64.7% | 0.663 | 0.123 | 0.555 | 0.692 | 0.777 | 0.939 | 0.221 |
+| `RGNB` | 56 | 44 | 78.6% | 0.794 | 0.440 | 0.717 | 0.837 | 0.895 | 0.970 | 0.178 |
+
+**Flagged buckets.** The diagnostics warn where a bucket's win rate falls outside 5-95% or its interquartile spread drops below 0.10:
+
+- ABSENT: p75-p25 spread 0.076 < 0.1
+
+These are recorded rather than corrected. A narrow spread inside a bucket means the modelled probabilities there are bunched, so within that bucket there is little for a scorer to separate; treat per-bucket skill claims on it with suspicion until the noise model is revisited.
+
 ## Splits
 
 **Temporal, by `txn_timestamp`.** Cases are ordered by transaction time and cut, so the test set is strictly the latest slice — trained on the past, judged on what came after. A shuffled split would leak future information; this cannot.
@@ -160,3 +187,4 @@ Check B - generator labelling vs hand-written seed-v1 labels
 - Contradictions are planted structurally — two individually valid artifacts of accepted types marked as conflicting — rather than being emergent from artifact content. A real verifier will face subtler conflicts than these.
 - The noise model is a stated assumption, not an estimate from observed outcomes. Its base rates are plausible rather than measured, so absolute win rates here carry no external meaning; only relative ordering is intended to.
 - Deemed approval is carried as metadata and deliberately changes no outcome, matching the engine. When the presumption is given weight in the policy, this dataset will need regenerating.
+- **P2P is intentionally thin.** U3 and UC together are about 14% of the set, which reflects the real mix rather than an oversight, and the rulebook gives P2P only two reason codes (RC 108 and RC 121) against ten for P2M. Per-type metrics on P2P will therefore be high-variance, and the thinnest reason-code-by-decision cells hold only a handful of cases. This is flagged for reporting in the final evaluation — confidence intervals on P2P slices must be shown rather than point estimates — and is deliberately not corrected by rebalancing, which would misrepresent the population.
