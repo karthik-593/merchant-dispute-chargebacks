@@ -7,6 +7,9 @@ dependencies = [
     "fastapi>=0.141.1",
     "numpy>=2.4.6",
     "pydantic>=2.7",
+    "pymupdf>=1.28.2",
+    "pypdf>=6.17.0",
+    "pytesseract>=0.3.13",
     "pyyaml>=6.0",
     "uvicorn>=0.52.4",
 ]
