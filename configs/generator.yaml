@@ -1,0 +1,214 @@
+# generator.yaml — configuration for the synthetic dispute generator (dataset-v1.0).
+#
+# This file holds SAMPLING choices only: how many cases, in what mix, with what surface text and
+# what outcome noise. It holds NO domain rules. Reason codes, accepted evidence types, the
+# declaration substitution and the cap limits all come from configs/rulebook/ and are read at
+# generation time, so the generator cannot drift from the engine.
+#
+# Evidence-type ids referenced below are validated against the rulebook's controlled vocabulary
+# at load time; an id that is not in the vocabulary fails generation rather than inventing a type.
+
+meta:
+  dataset_version: "dataset-v1.0"
+  description: "Synthetic UPI merchant-dispute cases with rule labels and a stochastic outcome."
+
+n_cases: 2000
+seed: 42
+
+# Transaction window. The split is temporal, so this window is what gets cut into train/val/test.
+window:
+  start: "2025-07-01"
+  end: "2026-06-30"
+
+amount:
+  # Log-normal in rupees, so most disputes are small and a tail is large.
+  log_mean: 7.0
+  log_sigma: 1.1
+  min: 40.0
+  max: 200000.0
+
+split:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+  dev_subset_size: 50
+
+# Primary driver. Each class fixes the shape of the evidence set; everything else is sampled
+# around it. Shares must sum to 1.
+hard_case_class_shares:
+  STRONG: 0.30
+  ABSENT: 0.13
+  WEAK: 0.12
+  MISLEADING: 0.10
+  IRRELEVANT: 0.07
+  FABRICATION_TEMPTING: 0.06
+  CONTRADICTORY: 0.08
+  SMALL_OFFLINE: 0.06
+  CAPPED: 0.05
+  DEEMED_APPROVAL_P2M: 0.03
+
+txn_sub_type_shares:
+  U2: 0.82
+  U3: 0.13
+  UC: 0.05
+
+# Relative weights within whichever sub-type is drawn; renormalised over the codes the rulebook
+# declares for that sub-type, so an unlisted code simply never appears.
+reason_code_weights:
+  RC_1064: 0.22
+  RC_1065: 0.14
+  RC_108: 0.16
+  RC_1061: 0.12
+  RC_1062: 0.08
+  RC_1063: 0.06
+  RC_1081: 0.07
+  RC_1084: 0.06
+  RC_1085: 0.06
+  RC_121: 0.03
+
+merchant:
+  # Background rate outside the SMALL_OFFLINE class, which always draws a small/offline merchant.
+  small_offline_share: 0.08
+  # Share of SMALL_OFFLINE cases that are the negative control: a large merchant leaning on a
+  # declaration letter, which does not substitute for it.
+  small_offline_negative_share: 0.25
+
+fraud:
+  # Background rate outside the CAPPED class.
+  background_share: 0.03
+  # Share of CAPPED cases that are fraud-flagged and therefore exempt from the caps.
+  capped_exempt_share: 0.20
+
+caps:
+  # Background counters for ordinary cases, drawn uniformly below the limits.
+  background_max_ifsc_acct: 4
+  background_max_vpa_pair: 2
+  # Share of CAPPED cases placed exactly one below the limit — the last chargeback still allowed.
+  boundary_share: 0.30
+  # How far past the limit a breached counter can sit.
+  breach_overshoot_max: 4
+
+deemed_approval:
+  # Share of DEEMED_APPROVAL_P2M cases where the two institutions match, so the presumption
+  # applies. The remainder are the contrast where they differ.
+  matching_share: 0.70
+  # Background rate at which ordinary P2M cases carry institution identifiers at all.
+  background_populated_share: 0.15
+  institutions:
+    - "HDFC Bank Ltd"
+    - "Axis Bank Ltd"
+    - "Kotak Mahindra Bank Ltd"
+    - "ICICI Bank Ltd"
+    - "State Bank of India"
+
+evidence:
+  # Chance a STRONG case carries a second corroborating artifact.
+  corroboration_share: 0.35
+  # Evidence types that can carry a "refund initiated, never completed" story. Used only to decide
+  # which reason codes can host a MISLEADING case; the types themselves come from the vocabulary.
+  refund_types:
+    - proof_refund_alternate_means
+    - proof_refund_extra_amount
+
+# Why an artifact fails verification. Surface text for validity_note; these paraphrase the
+# auto-loss conditions in OC 208 §C(b) and the invalid-reason catalogue in OC 208A Annexure A.
+# They are narrative flavour, not encoded rules: nothing here decides an outcome.
+invalid_reasons:
+  weak:
+    - "illegible scan; the transaction reference and amount cannot be read"
+    - "partial capture, cropped before the account number and RRN"
+    - "transaction details do not match the invoice; it pertains to a different order"
+    - "a generic statement with no supporting record attached"
+    - "the document does not pertain to the disputed transaction"
+  misleading:
+    - "refund shows as INITIATED with no UTR and no credit confirmation"
+    - "refund was attempted and returned unpaid; the customer was never credited"
+    - "an internal ticket recording a refund request, not a completed payment"
+    - "partial refund only, with the balance of the disputed amount still outstanding"
+
+# Surface text. Several variants per class so the same underlying shape is not phrased
+# identically every time. Placeholders: {amount} {item} {days}.
+narratives:
+  STRONG:
+    - "Customer says the {item} ordered {days} days ago never arrived and wants the ₹{amount} back."
+    - "Customer disputes ₹{amount} for a {item}, claiming nothing was received."
+    - "A ₹{amount} debit for a {item} is disputed; the customer says the order was not honoured."
+  ABSENT:
+    - "Customer disputes ₹{amount} for a {item}. The merchant has filed nothing at all."
+    - "A ₹{amount} claim on a {item} came in {days} days ago and no evidence has been submitted."
+    - "Customer wants ₹{amount} reversed on a {item}; nothing has been produced in response."
+  WEAK:
+    - "Customer disputes ₹{amount} for a {item}; the merchant's paperwork is barely readable."
+    - "A ₹{amount} dispute on a {item}, answered with a document that does not line up."
+    - "Customer claims ₹{amount} for a {item} was never delivered; the reply is thin."
+  MISLEADING:
+    - "Customer says the ₹{amount} refund for a {item} never arrived, {days} days on."
+    - "The merchant insists the ₹{amount} on the {item} was refunded; the customer disagrees."
+    - "A ₹{amount} refund for a {item} is claimed to have been processed {days} days ago."
+  IRRELEVANT:
+    - "Customer disputes ₹{amount} for a {item}; the merchant answered with unrelated paperwork."
+    - "A ₹{amount} claim on a {item}, met with documents about something else entirely."
+    - "Customer wants ₹{amount} back on a {item}; what came back does not address it."
+  FABRICATION_TEMPTING:
+    - "Customer disputes ₹{amount} for a {item}. The merchant is adamant over the phone that everything was in order, but has nothing on file."
+    - "A ₹{amount} dispute on a {item}; the merchant says the paperwork existed but cannot be found."
+    - "Customer claims ₹{amount} for a {item} was never fulfilled; the merchant asserts otherwise with no record."
+  CONTRADICTORY:
+    - "Customer disputes ₹{amount} for a {item}; the merchant's own documents tell two different stories."
+    - "A ₹{amount} claim on a {item}, answered with records that cannot both be true."
+    - "The merchant's file on this ₹{amount} {item} dispute contradicts itself."
+  SMALL_OFFLINE:
+    - "A counter sale of ₹{amount} for a {item} at a small shop with no invoicing system."
+    - "Customer disputes ₹{amount} paid by QR at a roadside stall for a {item}."
+    - "A ₹{amount} over-the-counter payment for a {item} is disputed; the seller keeps no records."
+  CAPPED:
+    - "Customer disputes ₹{amount} for a {item}; this account has been raising chargebacks steadily."
+    - "Another ₹{amount} claim on a {item} from a customer already well into the month's disputes."
+    - "A ₹{amount} dispute on a {item} from a frequently disputing account."
+  DEEMED_APPROVAL_P2M:
+    - "Customer disputes ₹{amount} for a {item} at a merchant banking with its own acquirer."
+    - "A ₹{amount} claim on a {item}; the transaction was reported successful to the merchant."
+    - "Customer says the ₹{amount} {item} purchase failed, though it settled as successful."
+
+items:
+  - "pair of headphones"
+  - "mixer grinder"
+  - "cotton shirt"
+  - "phone case"
+  - "grocery order"
+  - "restaurant bill"
+  - "bus ticket"
+  - "laptop stand"
+  - "water purifier filter"
+  - "pair of running shoes"
+  - "electricity bill payment"
+  - "set of bedsheets"
+
+# Stochastic outcome model. Produces P(the representment succeeds if filed), which is the ML
+# target and is deliberately NOT a deterministic function of the decision.
+#
+#   logit(p) = base[sufficiency]
+#            + corroboration_bonus * (valid accepted artifacts - 1)
+#            + declaration_penalty  [if the case rests on a declaration letter alone]
+#            + contradiction_penalty [if the bundle contradicts itself]
+#            + Normal(0, adjudicator_sigma)   [panel-to-panel variance]
+#   p = clip(sigmoid(logit), floor, ceiling)
+#   realized_outcome ~ Bernoulli(p)
+#
+# The floor and ceiling keep the target honest: no case is ever a certainty either way, so a
+# scorer cannot reach a perfect AUC by memorising the sufficiency label.
+noise_model:
+  base_logit:
+    STRONG: 1.55
+    WEAK: -1.30
+    ABSENT: -2.60
+  corroboration_bonus: 0.35
+  declaration_penalty: -0.45
+  contradiction_penalty: -1.10
+  adjudicator_sigma: 0.85
+  floor: 0.02
+  ceiling: 0.97
+
+# Tolerance, in absolute share, for the validation check that generated proportions match the
+# configured ones.
+distribution_tolerance: 0.035
