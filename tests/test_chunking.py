@@ -48,7 +48,7 @@ def test_query_set_is_frozen_and_versioned(queries):
     assert queries["meta"]["version"].startswith("retrieval-v")
     assert queries["meta"]["frozen"] is True
     assert queries["meta"]["query_count"] == len(queries["queries"])
-    assert 20 <= len(queries["queries"]) <= 30
+    assert 20 <= len(queries["queries"]) <= 80
 
 
 def test_every_query_has_a_question_and_at_least_one_target(queries):

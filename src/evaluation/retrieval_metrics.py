@@ -32,6 +32,28 @@ QUERY_FILE = "retrieval_queries.yaml"
 K_VALUES = (1, 3, 5)
 TOP_K = max(K_VALUES)
 
+# Two roles, kept apart everywhere a headline is derived.
+#
+# A DISCRIMINATOR is there to separate configurations: it is hard, and how often it is answered is
+# the experiment's signal. A REGRESSION_GUARD is a tripwire - the system already answers it, and
+# the only interesting outcome is it breaking. Averaging the two would let a guard that everything
+# passes inflate every cell by the same amount and quietly shrink the margins the experiment
+# exists to measure, so aggregates default to discriminators only.
+DISCRIMINATOR = "discriminator"
+REGRESSION_GUARD = "regression_guard"
+
+# The fields that existed before roles and classes were added. Hashing only these gives a
+# continuity check across a schema change: adding descriptive metadata to a query does not alter
+# what it scores, and the hash should say so.
+SCORING_FIELDS = (
+    "id",
+    "question",
+    "topic",
+    "target_doc_ids",
+    "target_section",
+    "answer_anchors",
+)
+
 
 def load_queries(directory: Path | None = None) -> dict[str, Any]:
     """Read the frozen retrieval query set."""
@@ -63,12 +85,25 @@ def query_set_fingerprint(queries: list[dict[str, Any]]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def scoring_fingerprint(queries: list[dict[str, Any]]) -> str:
+    """Hash over only the fields that decide scoring.
+
+    Used to prove that carrying queries across a schema change left their meaning alone: v1.2 adds
+    `class` and `role` to every query, which moves the full fingerprint of all of them while
+    changing what none of them scores. The narrow hash is the honest continuity claim.
+    """
+    reduced = [{k: q[k] for k in SCORING_FIELDS if k in q} for q in queries]
+    return query_set_fingerprint(reduced)
+
+
 @dataclass
 class QueryOutcome:
     """How one query fared under one configuration."""
 
     query_id: str
     topic: str
+    role: str = DISCRIMINATOR
+    query_class: str = "unclassified"
     doc_hit_rank: int | None = None
     rule_hit_rank: int | None = None
     rule_hit_tokens: int | None = None
@@ -100,7 +135,12 @@ def score_hits(hits: list[RetrievalHit], query: dict[str, Any]) -> QueryOutcome:
     """
     targets = set(query["target_doc_ids"])
     anchors = [normalise(anchor) for anchor in query["answer_anchors"]]
-    outcome = QueryOutcome(query_id=query["id"], topic=query["topic"])
+    outcome = QueryOutcome(
+        query_id=query["id"],
+        topic=query["topic"],
+        role=query.get("role", DISCRIMINATOR),
+        query_class=query.get("class", "unclassified"),
+    )
 
     for hit in hits:
         if hit.doc_id not in targets:
@@ -121,31 +161,50 @@ class ScoreCard:
 
     outcomes: list[QueryOutcome] = field(default_factory=list)
 
-    def recall_at(self, k: int) -> float:
+    def scored(self, role: str | None = DISCRIMINATOR) -> list[QueryOutcome]:
+        """Outcomes an aggregate should average over.
+
+        Defaults to discriminators. Pass `role=None` for every query, or REGRESSION_GUARD to look
+        at the tripwires - which is a separate report, never a headline.
+        """
+        if role is None:
+            return list(self.outcomes)
+        return [o for o in self.outcomes if o.role == role]
+
+    def recall_at(self, k: int, role: str | None = DISCRIMINATOR) -> float:
         """Share of queries whose target document reached the top k."""
-        return mean(float(o.doc_hit_at(k)) for o in self.outcomes)
+        subset = self.scored(role)
+        return mean(float(o.doc_hit_at(k)) for o in subset) if subset else float("nan")
 
-    def rule_hit_at(self, k: int) -> float:
+    def rule_hit_at(self, k: int, role: str | None = DISCRIMINATOR) -> float:
         """Share of queries where a chunk in the top k actually carried the answer."""
-        return mean(float(o.rule_hit_at(k)) for o in self.outcomes)
+        subset = self.scored(role)
+        return mean(float(o.rule_hit_at(k)) for o in subset) if subset else float("nan")
 
-    def mrr(self) -> float:
+    def mrr(self, role: str | None = DISCRIMINATOR) -> float:
         """Mean reciprocal rank of the first document-level hit."""
-        return mean(1.0 / o.doc_hit_rank if o.doc_hit_rank else 0.0 for o in self.outcomes)
+        subset = self.scored(role)
+        if not subset:
+            return float("nan")
+        return mean(1.0 / o.doc_hit_rank if o.doc_hit_rank else 0.0 for o in subset)
 
-    def mean_hit_tokens(self) -> float:
+    def mean_hit_tokens(self, role: str | None = DISCRIMINATOR) -> float:
         """Average size of the chunk that carried the answer.
 
         Rule-hit-rate on its own rewards large chunks, because a bigger chunk contains more and so
         is likelier to hold every anchor. This is the price paid for those hits: the context a
         downstream model must read, and pay for, to get the answer.
         """
-        sizes = [o.rule_hit_tokens for o in self.outcomes if o.rule_hit_tokens]
+        sizes = [o.rule_hit_tokens for o in self.scored(role) if o.rule_hit_tokens]
         return mean(sizes) if sizes else float("nan")
 
-    def misses(self, k: int = TOP_K) -> list[QueryOutcome]:
+    def guards(self, k: int = TOP_K) -> list[tuple[QueryOutcome, bool]]:
+        """Every tripwire and whether it still holds. Reported apart from the metrics."""
+        return [(o, o.rule_hit_at(k)) for o in self.scored(REGRESSION_GUARD)]
+
+    def misses(self, k: int = TOP_K, role: str | None = DISCRIMINATOR) -> list[QueryOutcome]:
         """Queries where no chunk in the top k carried the answer."""
-        return [o for o in self.outcomes if not o.rule_hit_at(k)]
+        return [o for o in self.scored(role) if not o.rule_hit_at(k)]
 
     def outcome(self, query_id: str) -> QueryOutcome | None:
         """The outcome for one query, by id."""

@@ -457,8 +457,12 @@ def format_report(grid: Grid) -> str:
     """Render the full grid, the watched queries, the misses, and the top cluster."""
     meta = grid.queries["meta"]
     n = len(grid.queries["queries"])
+    guards = grid.cells[0].guards() if grid.cells else []
+    discriminators = len(grid.cells[0].scored()) if grid.cells else 0
     lines = [
-        f"M7 retrieval x embedding grid - {n} queries ({meta['version']}), top-{TOP_K}",
+        f"M7 retrieval x embedding grid - {meta['version']}, top-{TOP_K}",
+        f"{n} queries: {discriminators} discriminators (all aggregates below) "
+        f"+ {len(guards)} regression guards (reported separately, never averaged in)",
         f"{len(grid.cells)} cells. Eliminated before running: "
         + "; ".join(f"{name} ({why})" for name, why in ELIMINATED.items()),
         "",
@@ -528,6 +532,8 @@ def log_to_mlflow(cell: GridCell, queries: dict[str, Any], group: str = "main") 
                     "grid": group,
                     "query_set": queries["meta"]["version"],
                     "query_count": len(queries["queries"]),
+                    "discriminator_count": len(cell.scored()),
+                    "guard_count": len(cell.guards()),
                     "top_k": TOP_K,
                     "device": cell.device,
                 }
@@ -552,6 +558,9 @@ def log_to_mlflow(cell: GridCell, queries: dict[str, Any], group: str = "main") 
                 metrics[f"{query_id}_rule_hit_at_{TOP_K}"] = float(
                     bool(outcome and outcome.rule_hit_at(TOP_K))
                 )
+            # Tripwires, logged as their own series so they are never mistaken for a headline.
+            for outcome, holds in cell.guards():
+                metrics[f"guard_{outcome.query_id}_holds"] = float(holds)
             mlflow.log_metrics(metrics)
             return run.info.run_id
     except Exception as error:  # noqa: BLE001 - logging must not fail the experiment
