@@ -16,6 +16,8 @@ comparison that quietly stopped meaning anything.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean
@@ -41,6 +43,24 @@ def load_queries(directory: Path | None = None) -> dict[str, Any]:
 def normalise(text: str) -> str:
     """Collapse whitespace and lowercase, for anchor matching."""
     return " ".join(text.split()).lower()
+
+
+def query_fingerprint(query: dict[str, Any]) -> str:
+    """Content hash of one query: its meaning, not its formatting.
+
+    Hashes the loaded structure rather than the YAML bytes, so re-wrapping a folded question or
+    moving a comment does not read as an amendment, while any change to an id, question, target,
+    anchor or topic does. That is the property the freeze actually needs: the set is frozen as a
+    scoring target, not as a file layout.
+    """
+    canonical = json.dumps(query, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def query_set_fingerprint(queries: list[dict[str, Any]]) -> str:
+    """Content hash of a whole query set, in file order."""
+    canonical = json.dumps(queries, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 @dataclass

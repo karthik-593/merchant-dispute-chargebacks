@@ -20,12 +20,60 @@
 # every query is answerable by at least one chunk under at least one chunking strategy.
 
 meta:
-  version: "retrieval-v1"
+  version: "retrieval-v1.1"
   frozen: true
   query_count: 26
   corpus: "data/corpus/circulars.jsonl"
   note: "Targets derive from the corpus and the domain spec. Anchors are matched
          case-insensitively against chunk text, with whitespace collapsed."
+
+  # Content hashes over the LOADED queries, canonical JSON, sorted keys. They fingerprint what a
+  # query means, not how the YAML is wrapped: re-folding a question or moving a comment leaves
+  # them untouched, while any change to an id, question, target, anchor or topic moves them.
+  # `tests/test_query_freeze.py` recomputes all three and fails if any drifts.
+  queries_sha256: "257b38f5ba184b13ef4f8f64b69177e12a9314c588cfd146f5d0c5e3297a4151"
+  unamended_sha256: "1d1a30bbebb5d19c3cd0fffad680a96d90b3c1482bf997915f14c0f8ec98c212"
+  unamended_note: "Hash over the 25 queries NOT touched in v1.1, in file order. It is identical
+                   to the same 25 under retrieval-v1, which is what 'the rest of the set did not
+                   move' means here and is asserted rather than claimed."
+
+  changelog:
+    - version: "retrieval-v1.1"
+      date: "2026-09-08"
+      supersedes: "retrieval-v1"
+      queries_amended: ["q25"]
+      queries_unchanged: 25
+      change: "q25.target_doc_ids gains `oc_208a_annexure_a_reject_taxonomy_curated`, listed
+               before the OCR'd body. Nothing else about q25 changes: question, topic,
+               target_section and answer_anchors are byte-identical."
+      why: "The curated record post-dates the original freeze - it was created when OC 208A
+            Annexure A was reconciled against the verified rulebook, 15 of its 28 reject codes
+            having been damaged by OCR. It carries q25's anchor ('generic statements', code
+            1142) and superseded the OCR'd body for retrieval, so it ranked at or above the
+            listed target in 11 of 21 grid configurations while counting as a non-target. The
+            query was penalising the system for retrieving the corrected source."
+      convention: "Listing a curated table beside the OCR'd body of the same circular is the
+                   existing pattern: q01-q08 name oc_208_sec_c_evidence_map_curated alongside
+                   OC 208, and q12-q14 name oc_184b_rgnb_response_table_curated alongside
+                   OC 184B. q25 was the only reject-taxonomy query written before that record
+                   existed."
+      not_amended: "q19, q21 and q22 also name a circular that now has a curated record, and
+                    were deliberately left alone. Those records cover a DIFFERENT section of the
+                    same circular - Annexure A's reject codes, and SecC's evidence map - and do
+                    not contain those queries' anchors ('5 calendar days', '500', '3,000').
+                    Adding them would let Recall@K credit retrieval of a document that provably
+                    cannot answer the question. The convention is 'the curated record covers the
+                    section the query asks about', not 'the curated record supersedes any target'."
+      metric_effect: "Scoped claim, measured rather than assumed: no metric regressed AS A RESULT
+                      OF THIS AMENDMENT. Separately, the corpus reconciliation that preceded it
+                      (35 -> 36 documents) did move 11 of 21 grid cells in both directions; that
+                      is recorded in experiments/EXP-RETRIEVAL-001.md and is not attributable to
+                      this query edit."
+      hashes:
+        q25_before: "9de68f209833e9793acc393d6110de90f95664d2e1b2f323ca922d23825ba45e"
+        q25_after: "a051be1b4ceaece54512890d0fda0d3fc3adf95867c8c93b19245d86b6246052"
+        all_before: "e49c8f7a7969c5affafab3fa8c19a6876830f6dc9ca115aa70df12fd1fe9de59"
+        all_after: "257b38f5ba184b13ef4f8f64b69177e12a9314c588cfd146f5d0c5e3297a4151"
 
 queries:
   # --- evidence by reason code (OC 208 §C) -----------------------------------------------
@@ -258,6 +306,10 @@ queries:
                statement?"
     topic: reject_reasons
     target_doc_ids:
+      # Amended in retrieval-v1.1: the curated record post-dates the original freeze. Listing
+      # both matches q01-q08 and q12-q14, which already name a curated table beside the OCR'd
+      # body of the same circular. See meta.changelog.
+      - oc_208a_annexure_a_reject_taxonomy_curated
       - upi_oc_no_208_a_fy_2025_26_addendum_to_oc_208_implementation_of_nrp_prd_process_
     target_section: "OC 208A Annexure A, reason code 1142"
     answer_anchors: ["generic statements"]

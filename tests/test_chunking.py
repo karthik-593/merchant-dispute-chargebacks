@@ -40,7 +40,12 @@ def corpus():
 
 
 def test_query_set_is_frozen_and_versioned(queries):
-    assert queries["meta"]["version"] == "retrieval-v1"
+    """Shape only.
+
+    The version, its hashes and the amendment trail live in test_query_freeze.py, so a re-freeze
+    does not have to be edited into two places.
+    """
+    assert queries["meta"]["version"].startswith("retrieval-v")
     assert queries["meta"]["frozen"] is True
     assert queries["meta"]["query_count"] == len(queries["queries"])
     assert 20 <= len(queries["queries"]) <= 30
