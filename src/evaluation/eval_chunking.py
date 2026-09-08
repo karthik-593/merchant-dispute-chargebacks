@@ -4,13 +4,9 @@ The retriever is held constant at BM25 on purpose. Choosing a retriever is M7's 
 varying both at once would leave neither result attributable — a chunker that wins here has won
 under one fixed, unglamorous ranking function, which is exactly the comparison M6 is for.
 
-Two metrics matter, and they are not the same:
-
-- **Recall@K** asks whether a chunk from the right *document* reached the top K. It is the usual
-  measure and it is generous: on a 35-document corpus, retrieving the right document is not hard.
-- **Rule-hit-rate** asks whether one of those chunks actually *carried the answer*, judged by the
-  anchors frozen into the query set. This is the measure that discriminates. A chunker can score
-  a perfect Recall@1 while every chunk it returns is a fragment that answers nothing.
+The metrics live in `retrieval_metrics`, shared with M7 so the two experiments are read on one
+scale. Recall@K asks whether the right document was retrieved; rule-hit-rate@K asks whether a
+retrieved chunk actually carried the answer. The second is the one that discriminates.
 
 Nothing here picks a winner. It reports numbers.
 """
@@ -18,107 +14,50 @@ Nothing here picks a winner. It reports numbers.
 from __future__ import annotations
 
 import argparse
-import re
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from statistics import mean
 from typing import Any
 
-import yaml
-from rank_bm25 import BM25Okapi
-
 from src.config import load_config
+from src.evaluation.retrieval_metrics import (
+    K_VALUES,
+    TOP_K,
+    ScoreCard,
+    length_split,
+    load_queries,
+    normalise,
+    score_hits,
+)
 from src.logging_setup import get_logger
 from src.retrieval.chunkers import Chunk, Chunker, all_chunkers, chunk_corpus
-from src.retrieval.corpus_ingest import DocumentRecord, corpus_dir, read_corpus
+from src.retrieval.corpus_ingest import DocumentRecord, read_corpus
+from src.retrieval.retrievers import BM25Retriever, tokenize
 
 log = get_logger(__name__)
 
 EXPERIMENT = "M6-chunking"
-QUERY_FILE = "retrieval_queries.yaml"
-K_VALUES = (1, 3, 5)
-TOP_K = max(K_VALUES)
-_WORD = re.compile(r"[a-z0-9]+")
 
-
-def load_queries(directory: Path | None = None) -> dict[str, Any]:
-    """Read the frozen retrieval query set."""
-    path = (directory or corpus_dir()) / QUERY_FILE
-    with path.open(encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
-
-
-def tokenize(text: str) -> list[str]:
-    """Lowercase word tokens for BM25, split on underscores as well as whitespace.
-
-    The corpus writes evidence types as `invoice_with_proof_of_delivery` and reason codes as
-    `RC_1064`, while a question says "RC 1064" and "invoice with proof of delivery". Indexing the
-    identifier whole would mean the two never meet, and the resulting scores would say something
-    about tokenisation rather than about chunking.
-    """
-    return _WORD.findall(text.lower())
-
-
-def normalise(text: str) -> str:
-    """Collapse whitespace and lowercase, for anchor matching."""
-    return " ".join(text.split()).lower()
+__all__ = [
+    "ChunkerResult",
+    "evaluate_chunker",
+    "length_split",
+    "load_queries",
+    "main",
+    "normalise",
+    "run",
+    "tokenize",
+]
 
 
 @dataclass
-class QueryOutcome:
-    """How one query fared under one chunker."""
-
-    query_id: str
-    topic: str
-    doc_hit_rank: int | None = None
-    rule_hit_rank: int | None = None
-    rule_hit_tokens: int | None = None
-
-    def doc_hit_at(self, k: int) -> bool:
-        """Whether a chunk from a target document reached the top k."""
-        return self.doc_hit_rank is not None and self.doc_hit_rank <= k
-
-    def rule_hit_at(self, k: int) -> bool:
-        """Whether a chunk carrying the answer reached the top k."""
-        return self.rule_hit_rank is not None and self.rule_hit_rank <= k
-
-
-@dataclass
-class ChunkerResult:
+class ChunkerResult(ScoreCard):
     """Everything measured for one chunking strategy."""
 
-    name: str
-    n_chunks: int
-    mean_tokens: float
-    mean_chars: float
-    max_tokens: int
-    outcomes: list[QueryOutcome] = field(default_factory=list)
-
-    def recall_at(self, k: int) -> float:
-        """Share of queries whose target document reached the top k."""
-        return mean(float(o.doc_hit_at(k)) for o in self.outcomes)
-
-    def rule_hit_at(self, k: int) -> float:
-        """Share of queries where a chunk in the top k actually carried the answer."""
-        return mean(float(o.rule_hit_at(k)) for o in self.outcomes)
-
-    def mrr(self) -> float:
-        """Mean reciprocal rank of the first document-level hit."""
-        return mean(1.0 / o.doc_hit_rank if o.doc_hit_rank else 0.0 for o in self.outcomes)
-
-    def mean_hit_tokens(self) -> float:
-        """Average size of the chunk that carried the answer.
-
-        Rule-hit-rate on its own rewards large chunks, because a bigger chunk contains more and so
-        is likelier to hold every anchor. This is the price paid for those hits: the context a
-        downstream model must read, and pay for, to get the answer.
-        """
-        sizes = [o.rule_hit_tokens for o in self.outcomes if o.rule_hit_tokens]
-        return mean(sizes) if sizes else float("nan")
-
-    def misses(self) -> list[QueryOutcome]:
-        """Queries where no chunk in the top K carried the answer."""
-        return [o for o in self.outcomes if not o.rule_hit_at(TOP_K)]
+    name: str = ""
+    n_chunks: int = 0
+    mean_tokens: float = 0.0
+    mean_chars: float = 0.0
+    max_tokens: int = 0
 
 
 def evaluate_chunker(
@@ -126,8 +65,7 @@ def evaluate_chunker(
 ) -> ChunkerResult:
     """Chunk the corpus, index it with BM25, and score every query."""
     chunks: list[Chunk] = chunk_corpus(records, chunker)
-    index = BM25Okapi([tokenize(chunk.text) for chunk in chunks])
-    normalised = [normalise(chunk.text) for chunk in chunks]
+    retriever = BM25Retriever(chunks)
 
     result = ChunkerResult(
         name=chunker.name,
@@ -136,51 +74,9 @@ def evaluate_chunker(
         mean_chars=mean(c.n_chars for c in chunks),
         max_tokens=max(c.n_tokens for c in chunks),
     )
-
     for query in queries["queries"]:
-        scores = index.get_scores(tokenize(query["question"]))
-        ranked = sorted(range(len(chunks)), key=lambda i: scores[i], reverse=True)[:TOP_K]
-        targets = set(query["target_doc_ids"])
-        anchors = [normalise(a) for a in query["answer_anchors"]]
-
-        outcome = QueryOutcome(query_id=query["id"], topic=query["topic"])
-        for rank, position in enumerate(ranked, start=1):
-            chunk = chunks[position]
-            if chunk.doc_id not in targets:
-                continue
-            if outcome.doc_hit_rank is None:
-                outcome.doc_hit_rank = rank
-            if outcome.rule_hit_rank is None and all(
-                anchor in normalised[position] for anchor in anchors
-            ):
-                outcome.rule_hit_rank = rank
-                outcome.rule_hit_tokens = chunk.n_tokens
-        result.outcomes.append(outcome)
+        result.outcomes.append(score_hits(retriever.search(query["question"], TOP_K), query))
     return result
-
-
-def length_split(
-    records: list[DocumentRecord], queries: dict[str, Any]
-) -> tuple[int, dict[str, set[str]]]:
-    """Group queries by whether their target documents are short or long.
-
-    The threshold is the corpus median, so the split describes this corpus rather than importing
-    an assumption about document length from somewhere else.
-    """
-    sizes = sorted(record.char_count for record in records)
-    threshold = sizes[len(sizes) // 2]
-    by_id = {record.doc_id: record.char_count for record in records}
-
-    groups: dict[str, set[str]] = {"short": set(), "long": set(), "mixed": set()}
-    for query in queries["queries"]:
-        lengths = [by_id[d] for d in query["target_doc_ids"] if d in by_id]
-        if all(length <= threshold for length in lengths):
-            groups["short"].add(query["id"])
-        elif all(length > threshold for length in lengths):
-            groups["long"].add(query["id"])
-        else:
-            groups["mixed"].add(query["id"])
-    return threshold, groups
 
 
 def format_report(

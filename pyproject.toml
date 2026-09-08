@@ -12,6 +12,8 @@ dependencies = [
     "pytesseract>=0.3.13",
     "pyyaml>=6.0",
     "rank-bm25>=0.2.2",
+    "sentence-transformers>=3.0",
+    "torch>=2.6",
     "uvicorn>=0.52.4",
 ]
 
@@ -24,6 +26,18 @@ dev = [
     "pytest>=8.2",
     "ruff>=0.5",
 ]
+
+# Dense retrieval runs on the local RTX 4060 (8 GB, Ada/sm_89), so torch comes from the CUDA
+# 12.6 wheel index rather than PyPI's CPU default. M7 itself would be happy on CPU - the index is
+# a few hundred chunks - but the latency numbers that feed the M7 trade-off should be measured on
+# the hardware the system will actually run on, and M8 needs the GPU regardless.
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
 
 [tool.uv]
 # Build environments from uv-managed interpreters only, so the project never

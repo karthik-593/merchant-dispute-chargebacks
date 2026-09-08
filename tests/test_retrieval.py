@@ -1,0 +1,297 @@
+"""Tests for the M7 retrieval layer: BM25, dense, fusion, and the grid harness.
+
+The dense cells need a downloaded encoder, so anything touching a real model is skipped unless
+that model is already in the local Hugging Face cache. Fusion, ranking, provenance and scoring
+are tested against a stub whose scores are chosen by hand — those are the parts that have to be
+*right*, as opposed to merely measured, and they should not depend on a network.
+"""
+
+from __future__ import annotations
+
+from itertools import pairwise
+
+import numpy as np
+import pytest
+
+from src.evaluation.eval_retrieval import (
+    ELIMINATED,
+    GRID_CHUNKERS,
+    WATCHED_QUERIES,
+    Grid,
+    GridCell,
+    evaluate_cell,
+    grid_chunkers,
+    run_grid,
+)
+from src.evaluation.retrieval_metrics import (
+    TOP_K,
+    load_queries,
+    normalise,
+    score_hits,
+)
+from src.retrieval.chunkers import SentenceChunker, chunk_corpus
+from src.retrieval.corpus_ingest import CORPUS_FILE, corpus_dir, read_corpus
+from src.retrieval.retrievers import (
+    EMBEDDINGS,
+    BM25Retriever,
+    DenseRetriever,
+    HybridRetriever,
+    _minmax,
+    tokenize,
+)
+
+CORPUS_PATH = corpus_dir() / CORPUS_FILE
+needs_corpus = pytest.mark.skipif(
+    not CORPUS_PATH.is_file(), reason="ingested corpus not on disk (dvc pull)"
+)
+
+TEST_EMBEDDING = "all-MiniLM-L6-v2"
+
+
+def _model_is_cached(embedding: str) -> bool:
+    """Whether the encoder is already downloaded, so a test can use it without a network."""
+    try:
+        from huggingface_hub import try_to_load_from_cache
+    except ImportError:
+        return False
+    cached = try_to_load_from_cache(EMBEDDINGS[embedding]["model_id"], "config.json")
+    return isinstance(cached, str)
+
+
+needs_encoder = pytest.mark.skipif(
+    not _model_is_cached(TEST_EMBEDDING), reason=f"{TEST_EMBEDDING} not in the local HF cache"
+)
+
+
+@pytest.fixture(scope="module")
+def corpus():
+    return read_corpus()
+
+
+@pytest.fixture(scope="module")
+def queries():
+    return load_queries()
+
+
+@pytest.fixture(scope="module")
+def chunks(corpus):
+    return chunk_corpus(corpus, SentenceChunker())
+
+
+class StubDense:
+    """A dense retriever whose scores are dictated, so fusion can be checked exactly."""
+
+    name = "dense"
+
+    def __init__(self, chunks, scores):
+        """Hold the chunks and the scores this stub will always return."""
+        self.chunks = chunks
+        self._scores = np.asarray(scores, dtype=np.float64)
+
+    def scores(self, question: str) -> np.ndarray:  # noqa: ARG002 - fixed by construction
+        """Return the dictated scores, whatever the question."""
+        return self._scores
+
+
+# --- ranking primitives ------------------------------------------------------------------------
+
+
+def test_minmax_maps_to_the_unit_interval():
+    scaled = _minmax(np.array([2.0, 4.0, 6.0]))
+    assert scaled.tolist() == [0.0, 0.5, 1.0]
+
+
+def test_minmax_of_a_flat_vector_carries_no_signal():
+    """An all-equal vector ranks nothing; it must not go all-ones and outvote the other side."""
+    assert _minmax(np.array([3.0, 3.0, 3.0])).tolist() == [0.0, 0.0, 0.0]
+
+
+def test_tokenizer_splits_identifiers_so_queries_can_match_them():
+    assert tokenize("RC_1064") == ["rc", "1064"]
+    assert "delivery" in tokenize("invoice_with_proof_of_delivery")
+
+
+# --- BM25 --------------------------------------------------------------------------------------
+
+
+@needs_corpus
+def test_bm25_returns_k_hits_ranked_best_first(chunks):
+    hits = BM25Retriever(chunks).search("What evidence does RC 1064 accept?", TOP_K)
+    assert len(hits) == TOP_K
+    assert [h.rank for h in hits] == list(range(1, TOP_K + 1))
+    assert all(a.score >= b.score for a, b in pairwise(hits))
+
+
+@needs_corpus
+def test_every_hit_carries_its_provenance(chunks):
+    """A retrieved passage that cannot say where it came from is not usable downstream."""
+    for hit in BM25Retriever(chunks).search("chargeback cap per customer", TOP_K):
+        assert hit.doc_id
+        assert hit.chunk.page_start >= 1
+        assert hit.chunk.page_end >= hit.chunk.page_start
+        assert hit.chunk.source_path
+        assert hit.doc_id in hit.citation()
+
+
+@needs_corpus
+def test_ranking_is_reproducible(chunks):
+    retriever = BM25Retriever(chunks)
+    first = retriever.search("RGNB response time for P2P", TOP_K)
+    second = retriever.search("RGNB response time for P2P", TOP_K)
+    assert [h.chunk.chunk_id for h in first] == [h.chunk.chunk_id for h in second]
+
+
+@needs_corpus
+def test_ties_break_on_index_order_not_at_random(chunks):
+    """Equal scores must resolve the same way every run, or the grid is not reproducible."""
+    scores = np.zeros(len(chunks))
+    from src.retrieval.retrievers import _top_k
+
+    hits = _top_k(chunks, scores, 5)
+    assert [h.chunk.chunk_id for h in hits] == [c.chunk_id for c in chunks[:5]]
+
+
+# --- fusion ------------------------------------------------------------------------------------
+
+
+@needs_corpus
+def test_fusion_at_alpha_zero_is_bm25(chunks):
+    lexical = BM25Retriever(chunks)
+    dense = StubDense(chunks, np.random.default_rng(0).normal(size=len(chunks)))
+    question = "What is the chargeback limit for a payer-payee VPA pair?"
+    fused = HybridRetriever(lexical, dense, alpha=0.0).search(question, TOP_K)
+    assert [h.chunk.chunk_id for h in fused] == [
+        h.chunk.chunk_id for h in lexical.search(question, TOP_K)
+    ]
+
+
+@needs_corpus
+def test_fusion_at_alpha_one_is_dense(chunks):
+    lexical = BM25Retriever(chunks)
+    scores = np.zeros(len(chunks))
+    scores[7] = 1.0
+    fused = HybridRetriever(lexical, StubDense(chunks, scores), alpha=1.0).search("anything", 1)
+    assert fused[0].chunk.chunk_id == chunks[7].chunk_id
+
+
+@needs_corpus
+def test_fusion_weight_is_bounded(chunks):
+    lexical = BM25Retriever(chunks)
+    dense = StubDense(chunks, np.zeros(len(chunks)))
+    for alpha in (-0.1, 1.1):
+        with pytest.raises(ValueError, match="alpha"):
+            HybridRetriever(lexical, dense, alpha=alpha)
+
+
+@needs_corpus
+def test_fusion_rejects_mismatched_indexes(chunks):
+    lexical = BM25Retriever(chunks)
+    with pytest.raises(ValueError, match="same chunks"):
+        HybridRetriever(lexical, StubDense(chunks[:5], np.zeros(5)), alpha=0.5)
+
+
+# --- scoring -----------------------------------------------------------------------------------
+
+
+@needs_corpus
+def test_rule_hit_requires_every_anchor(chunks):
+    """One anchor out of two is not the answer; the chunk has to hold the whole thing.
+
+    The chunk here is from the right document and does contain the first anchor, so it scores a
+    document hit. It must still not score a rule hit, or the metric would be rewarding a passage
+    that carries half an answer - which downstream is a citation to a rule the chunk never states.
+    """
+    from src.retrieval.retrievers import RetrievalHit
+
+    chunk = chunks[0]
+    present = normalise(chunk.text).split()[0]
+    query = {
+        "id": "synthetic",
+        "topic": "synthetic",
+        "target_doc_ids": [chunk.doc_id],
+        "answer_anchors": [present, "no chunk anywhere in this corpus contains this"],
+    }
+    outcome = score_hits([RetrievalHit(rank=1, score=1.0, chunk=chunk)], query)
+    assert outcome.doc_hit_rank == 1
+    assert outcome.rule_hit_rank is None
+
+    query["answer_anchors"] = [present]
+    assert score_hits([RetrievalHit(rank=1, score=1.0, chunk=chunk)], query).rule_hit_rank == 1
+
+
+@needs_corpus
+def test_scoring_matches_m6_for_the_same_configuration(corpus, queries):
+    """M7's sentence/BM25 cell is M6's sentence row. If they disagree, one of them is wrong."""
+    from src.evaluation.eval_chunking import evaluate_chunker
+
+    m6 = evaluate_chunker(SentenceChunker(), corpus, queries)
+    chunks = chunk_corpus(corpus, SentenceChunker())
+    m7 = evaluate_cell(BM25Retriever(chunks), chunks, queries, chunker="sentence")
+    for k in (1, 3, 5):
+        assert m6.recall_at(k) == pytest.approx(m7.recall_at(k))
+        assert m6.rule_hit_at(k) == pytest.approx(m7.rule_hit_at(k))
+    assert m6.mrr() == pytest.approx(m7.mrr())
+
+
+# --- the grid ----------------------------------------------------------------------------------
+
+
+def test_the_pruned_grid_drops_fixed_size_and_says_why():
+    names = [c.name for c in grid_chunkers()]
+    assert set(names) == set(GRID_CHUNKERS)
+    assert "fixed_size" not in names
+    assert "fixed_size" in ELIMINATED
+    assert "0.654" in ELIMINATED["fixed_size"]
+
+
+def test_watched_queries_are_the_two_known_m6_failures(queries):
+    ids = {q["id"] for q in queries["queries"]}
+    assert set(WATCHED_QUERIES) <= ids
+
+
+def test_cluster_is_within_one_query_of_the_best_and_ranked_on_tiebreakers():
+    """Selection must not turn on a hairline, so the cluster is wide and ordered by cost."""
+
+    def cell(rule5: float, tokens: int, latency: float) -> GridCell:
+        made = GridCell(chunker="c", retriever="r")
+        made.rule_hit_at = lambda k=5, value=rule5: value  # type: ignore[method-assign]
+        made.mean_hit_tokens = lambda value=tokens: value  # type: ignore[method-assign]
+        made.query_latency_ms = latency
+        return made
+
+    grid = Grid(cells=[cell(1.0, 900, 5.0), cell(0.98, 150, 9.0), cell(0.80, 100, 1.0)])
+    cluster = grid.cluster()
+    assert len(cluster) == 2, "0.80 is more than one query behind and is not in the cluster"
+    assert cluster[0].mean_hit_tokens() == 150, "cheaper context ranks first inside the cluster"
+
+
+@needs_corpus
+@needs_encoder
+def test_dense_reports_how_much_it_could_not_see(corpus):
+    """whole_document chunks overrun a 512-token encoder; the run must say so, not hide it."""
+    from src.retrieval.chunkers import WholeDocumentChunker
+
+    chunks = chunk_corpus(corpus, WholeDocumentChunker())
+    dense = DenseRetriever(chunks, TEST_EMBEDDING)
+    assert dense.max_seq_length <= 512
+    assert dense.truncated_share() > 0.0
+
+
+@needs_corpus
+@needs_encoder
+def test_dense_embeddings_are_normalised(chunks):
+    dense = DenseRetriever(chunks[:16], TEST_EMBEDDING)
+    norms = np.linalg.norm(dense.matrix, axis=1)
+    assert np.allclose(norms, 1.0, atol=1e-3)
+
+
+@needs_corpus
+@needs_encoder
+def test_the_grid_runs_end_to_end_with_provenance_intact(corpus, queries):
+    grid = run_grid(corpus, queries, embeddings=(TEST_EMBEDDING,))
+    assert len(grid.cells) == len(GRID_CHUNKERS) * 3
+    for cell in grid.cells:
+        assert len(cell.outcomes) == len(queries["queries"])
+        assert cell.query_latency_ms > 0.0
+        assert 0.0 <= cell.rule_hit_at(5) <= cell.recall_at(5) <= 1.0
+    assert grid.cluster(), "there is always at least one cell within a margin of the best"
