@@ -97,12 +97,24 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         "",
         "### Curated tables",
         "",
-        "OCR flattens a table into running text, so the OC 208 §C evidence map and the OC 184B "
-        "RGNB response table both lose the association between a row and its columns. A chunk of "
-        "either reads as a stream of codes with no reliable link between a reason code and the "
-        "evidence that answers it — which retrieves as though it were an answer while being "
-        "unusable. Both are therefore also carried as curated records, rebuilt from the verified "
-        "structured form held in `configs/rulebook/`, so retrieval gets clean rows.",
+        "OCR flattens a table into running text, so the OC 208 §C evidence map, the OC 184B "
+        "RGNB response table and the OC 208A Annexure A reject taxonomy all lose the association "
+        "between a row and its columns. A chunk of any of them reads as a stream of codes with no "
+        "reliable link between a code and the text that answers it — which retrieves as though it "
+        "were an answer while being unusable. All three are therefore also carried as curated "
+        "records, rebuilt from the verified structured form held in `configs/rulebook/`, so "
+        "retrieval gets clean rows.",
+        "",
+        "OC 208A is the worst of the three, and differently so. The other two are merely "
+        "flattened; that one is **damaged** — 15 of its 28 NRP verdict reason codes are wrong or "
+        "missing in the scan (`Ilagible` for `Illegible`, `4146` for `1146`, `1184` for `1154`, "
+        "`TAN` for `TXN`, and four rows whose code or description is absent altogether). The "
+        "cause is structural rather than random: the column layout collapsed, leaving four codes "
+        "against three descriptions in the final block, which is how 1154's description was lost. "
+        "Every one of those differences is itemised, with the rulebook entry that authorises it, "
+        "in `configs/corpus/oc_208a_reconciliation.yaml`, and `tests/test_reconciliation.py` "
+        "checks in both directions — that each recorded damage is really in the scan, and that "
+        "each correction is really in the curated record.",
         "",
         "**The OCR'd bodies are kept.** Nothing is deleted: the flattened table text is still in "
         "the corpus and still cites its page. It is simply superseded for retrieval by the "
@@ -117,7 +129,7 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
             if r.extraction_method == EXTRACTION_CURATED
         ],
         "",
-        "Only these two are curated, and only because they are verified against source. Every "
+        "Only these three are curated, and only because they are verified against source. Every "
         "other table stays as OCR'd text until someone checks it: a curated record asserts that "
         "a human confirmed it, and producing them casually would empty the label of meaning.",
         "",
@@ -177,10 +189,16 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         f"the scanned documents average around {chars // max(pages, 1):,} characters per page, "
         "which is in the range of the born-digital ones, and no document fell under the "
         f"{LOW_YIELD_DOC_CHARS}-character review threshold.",
-        "- Tables are flattened by OCR. The two that retrieval most depends on — OC 208 §C and "
-        "the OC 184B RGNB table — are addressed by the curated records above, but every other "
-        "table in the corpus is still running text. A chunker that splits mid-table will produce "
-        "misleading fragments; this needs attention when chunking is designed.",
+        "- Tables are flattened by OCR. The three that retrieval most depends on — OC 208 §C, "
+        "the OC 184B RGNB table and the OC 208A reject taxonomy — are addressed by the curated "
+        "records above, but every other table in the corpus is still running text. A chunker that "
+        "splits mid-table will produce misleading fragments; this needs attention when chunking "
+        "is designed.",
+        "- OC 208A proves the flattening is not always harmless. Where a collapsed column layout "
+        "drops a row or shifts a digit, the damage is silent: nothing about `1184` or `Ilagible` "
+        "looks wrong until it is compared against a verified transcription. Any table promoted to "
+        "a curated record from here should be reconciled the same way, code by code, rather than "
+        "spot-checked.",
         "- Recognition is English-only. Several RBI circulars carry a Hindi header, which is "
         "recognised as noise. It sits at the top of page 1 and does not affect the operative "
         "English text below it.",

@@ -1,16 +1,25 @@
-"""Curated corpus records for the two tables OCR cannot render usefully.
+"""Curated corpus records for the three tables OCR cannot render usefully.
 
-OCR flattens a table into running text: the OC 208 §C evidence map and the OC 184B RGNB response
-table both lose their row and column structure, so a retrieved chunk of either reads as a stream
-of codes with no reliable association between a reason code and the evidence that answers it.
-Retrieval over that is worse than useless — it looks like an answer.
+OCR flattens a table into running text: the OC 208 §C evidence map, the OC 184B RGNB response
+table and the OC 208A Annexure A reject taxonomy all lose their row and column structure, so a
+retrieved chunk of any of them reads as a stream of codes with no reliable association between a
+code and the text that answers it. Retrieval over that is worse than useless — it looks like an
+answer.
 
-These two are rebuilt from the structured forms already held in `configs/rulebook/`, which is the
+OC 208A is the worst of the three, and differently so. The other two are merely flattened; that
+one is *damaged*. Fifteen of its 28 reason codes are wrong or missing in the scan — `Ilagible`
+for `Illegible`, `4146` for `1146`, `1184` for `1154`, `TAN` for `TXN`, and four rows whose code
+or description is simply absent. The corpus is a controlled regulatory rule set verified at load
+time, not a live OCR feed, so it is brought up to that standard here rather than downstream.
+
+All three are rebuilt from the structured forms already held in `configs/rulebook/`, which is the
 verified transcription of those tables and carries the source tags. Nothing here is hand-keyed at
 ingestion time, and nothing here invents a rule: change the rulebook and these records change
-with it.
+with it. Every difference between the OC 208A scan and its curated record is itemised in
+`configs/corpus/oc_208a_reconciliation.yaml` with its authority, and the scanned record stays in
+the corpus — superseded, never overwritten.
 
-**Only these two.** Every other table stays as OCR'd until someone verifies it against the
+**Only these three.** Every other table stays as OCR'd until someone verifies it against the
 source. A curated record asserts that a human checked it, so producing them casually would
 destroy the meaning of the label.
 """
@@ -19,8 +28,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from src.config import project_path
 from src.data.rulebook_vocab import (
     load_caps,
+    load_reject_taxonomy,
     load_rulebook,
     merchant_type_rule,
     reason_code_entries,
@@ -37,9 +48,22 @@ from src.retrieval.corpus_ingest import (
 # The scanned circulars these curated records are drawn from and cite.
 OC_208_FILENAME_PREFIX = "UPI-_-OC-No_-208-_-FY-24-25"
 OC_184B_FILENAME_PREFIX = "UPI-_-OC-No_-184-B"
+OC_208A_FILENAME_PREFIX = "UPI-_-OC-No_-208-A"
 
 OC_208_DOC_ID = "oc_208_sec_c_evidence_map_curated"
 OC_184B_DOC_ID = "oc_184b_rgnb_response_table_curated"
+OC_208A_DOC_ID = "oc_208a_annexure_a_reject_taxonomy_curated"
+
+RECONCILIATION_FILE = "oc_208a_reconciliation.yaml"
+
+
+def load_reconciliation() -> dict:
+    """Read the OC 208A OCR reconciliation log."""
+    import yaml
+
+    path = project_path("configs") / "corpus" / RECONCILIATION_FILE
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
 
 
 def _find_source(prefix: str) -> Path:
@@ -169,6 +193,57 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
     )
 
 
+def build_oc_208a_reject_taxonomy() -> DocumentRecord:
+    """The OC 208A Annexure A reject taxonomy, rendered clean from the rulebook.
+
+    One block per code, opening `Reason code <n>` so the structure-aware chunker splits on the
+    same boundary it already uses for the OC 208 §C table — one code per chunk, which is the unit
+    a question about a reject reason actually asks about.
+    """
+    taxonomy = load_reject_taxonomy()
+    meta = taxonomy["meta"]
+    reconciliation = load_reconciliation()
+    damaged = {c["code"] for c in reconciliation["corrections"]}
+
+    lines = [
+        "OC 208A Annexure A - NRP verdict reason codes",
+        "",
+        "The reason codes an NPCI Review Panel verdict is recorded under. Codes 1130 to 1132",
+        "record a rejection the panel accepts; everything from 1133 onward describes a defective",
+        "or invalid submission - the cases the verifier exists to catch before anything is filed.",
+        "",
+        f"Scope: {meta['covers']}. Source: {meta['primary_source']}, {meta['circular']}.",
+        "",
+        "This record supersedes the OCR'd rendering of the same annexure, in which 15 of these 28",
+        "codes are damaged. Every correction is itemised, with its authority, in",
+        f"configs/corpus/{RECONCILIATION_FILE}.",
+        "",
+    ]
+
+    for entry in taxonomy["nrp_verdict_reason_codes"]:
+        code = entry["code"]
+        lines.append(f"Reason code {code} - {' '.join(entry['description'].split())}")
+        if entry.get("transcription_note"):
+            lines.append(f"  Transcription note: {' '.join(entry['transcription_note'].split())}")
+        if code in damaged:
+            lines.append("  OCR reconciliation: corrected against the rulebook; see the log.")
+        lines += [f"  Source: {entry['source']}", ""]
+
+    lines.append(f"Source: {meta['primary_source']}")
+
+    return _wrap(
+        doc_id=OC_208A_DOC_ID,
+        source=_find_source(OC_208A_FILENAME_PREFIX),
+        section="Annexure A (NRP verdict reason codes)",
+        title="OC 208A Annexure A - NRP verdict reason codes (curated, OCR-reconciled)",
+        body="\n".join(lines),
+    )
+
+
 def build_curated_records() -> list[DocumentRecord]:
-    """Every curated record. Deliberately just the two verified tables."""
-    return [build_oc_208_evidence_map(), build_oc_184b_rgnb_table()]
+    """Every curated record. Deliberately just the three verified tables."""
+    return [
+        build_oc_208_evidence_map(),
+        build_oc_184b_rgnb_table(),
+        build_oc_208a_reject_taxonomy(),
+    ]

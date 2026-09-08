@@ -1,0 +1,193 @@
+# oc_208a_reconciliation.yaml — the OCR damage in OC 208A Annexure A, and what was done about it.
+#
+# WHY THIS FILE EXISTS. The corpus is a controlled regulatory rule set, verified at load time, not
+# a live OCR feed: production serves clean text. The scanned OC 208A annexure does not meet that
+# standard — 15 of its 28 NRP verdict reason codes are damaged — so a curated record supersedes it
+# for retrieval, exactly as the OC 208 §C and OC 184B tables already do.
+#
+# NOTHING IS SILENTLY OVERWRITTEN. Every difference between the scan and the curated record is
+# listed below with the literal as-scanned value, the corrected value, and the authority for the
+# correction. The OCR'd record is kept in the corpus unchanged; it is superseded, not replaced.
+# `tests/test_reconciliation.py` asserts that every `as_scanned` value really is in the scan (so
+# no correction is invented) and every `corrected_to` value really is in the curated record (so no
+# correction is claimed but unapplied).
+#
+# AUTHORITY. `configs/rulebook/reject_taxonomy.yaml` is the source of truth: it is the verified
+# transcription of this annexure, made across several page-segmentation passes, and it carries its
+# own per-entry source tags. This file never invents a value — it only records which rulebook
+# value replaced which scanned value.
+
+meta:
+  version: "1.0"
+  reconciled_on: "2026-09-08"
+  source: "OC 208A Annexure A (New Dispute Flags & Reason Codes), NRP verdict reason codes"
+  circular: "NPCI/UPI/OC 208A/2025-26, 30 Jun 2025"
+  authority: "configs/rulebook/reject_taxonomy.yaml"
+  superseded_doc_id: "upi_oc_no_208_a_fy_2025_26_addendum_to_oc_208_implementation_of_nrp_prd_process_"
+  curated_doc_id: "oc_208a_annexure_a_reject_taxonomy_curated"
+  covers: "codes 1130-1157"
+  annexure_page: 2
+  scope_note: "The reconciliation is about the Annexure A table, which the scan renders on page 2.
+               Codes are compared against that page, not the whole document: page 3 carries
+               Annexure B's arbitration lifecycle table, which cites the same codes as a range
+               ('1132 to 1157'). A code appearing there is a cross-reference, not a row, and
+               counting it would hide the fact that 1132's row is missing."
+  method: "Each rulebook code was searched for in the scanned annexure page as an isolated token,
+           and its verified description searched for verbatim after whitespace collapse; where
+           neither matched, the closest contiguous run of scanned lines was scored. 23 rows
+           classified automatically, 5 adjudicated by eye where a row's closest match landed on a
+           neighbouring row."
+  root_cause: "The annexure is a three-column table and OCR collapsed the column structure rather
+               than misreading characters at random. In the final block the codes 1184/1155/4156/
+               1157 sit on their own lines with their descriptions eleven lines further down and a
+               repeated 'NRP Verdict - AC/AT' header wedged between — four codes against three
+               descriptions, which is how 1154's description was lost. The same collapse explains
+               the codes interleaved mid-sentence in 1149, 1150 and 1151."
+
+# Damage classes:
+#   text      - characters misrecognised inside an otherwise intact row
+#   code      - the reason code itself misrecognised
+#   missing   - part of the row is absent from the scan; `absent` says which part
+#   layout    - no character damage; the code was interpolated into its own description
+#
+# `absent` is row | description | code, and is set only on a [missing] entry. It matters which:
+# 1145 kept its description and lost its code, 1136 and 1148 kept their code and lost their
+# description, and 1132 lost both. A log that called all three "missing" would be describing
+# three different repairs with one word.
+
+corrections:
+  - code: "1131"
+    damage: [text]
+    as_scanned: "Goods/Serces"
+    corrected_to: "Goods/Services"
+    change: "Serces -> Services"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1131"
+
+  - code: "1132"
+    damage: [missing]
+    absent: row
+    as_scanned: null
+    corrected_to: "Rejection document of merchant accepting dispute"
+    change: "whole row absent from the scan; restored from the rulebook"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1132"
+    note: "The rulebook records this row as recovered in a different segmentation pass, with a
+           transcription_note that the connecting word is uncertain. It is not in the stored scan
+           at all."
+
+  - code: "1136"
+    damage: [missing]
+    absent: description
+    as_scanned: "1136"
+    corrected_to: "CBS screenshot uploaded without TXN details"
+    change: "code present, description absent; restored from the rulebook"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1136"
+
+  - code: "1139"
+    damage: [text]
+    as_scanned: "Small/Offline catego:"
+    corrected_to: "Small/Offline category"
+    change: "catego: -> category (word truncated at the cell edge)"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1139"
+
+  - code: "1140"
+    damage: [text]
+    as_scanned: "Ilagible evidence"
+    corrected_to: "Illegible evidence"
+    change: "Ilagible -> Illegible"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1140"
+
+  - code: "1145"
+    damage: [missing]
+    absent: code
+    as_scanned: "No evidence has been provided"
+    corrected_to: "1145 - No evidence has been provided"
+    change: "description present in the scan, code absent; code restored from the rulebook"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1145"
+
+  - code: "1146"
+    damage: [code, text]
+    as_scanned: "4146 Only door-delivery defails"
+    corrected_to: "1146 - Only door-delivery details"
+    change: "4146 -> 1146 (leading digit); defails -> details"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1146"
+
+  - code: "1147"
+    damage: [code]
+    as_scanned: "4147 Only merchant details"
+    corrected_to: "1147 - Only merchant details"
+    change: "4147 -> 1147 (leading digit)"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1147"
+
+  - code: "1148"
+    damage: [missing]
+    absent: description
+    as_scanned: "1148"
+    corrected_to: "1148 - Others"
+    change: "code present, description absent; restored from the rulebook"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1148"
+
+  - code: "1149"
+    damage: [layout]
+    as_scanned: "Rejection document of partial refund uploaded but the customer is disputing"
+    corrected_to: "Rejection document of partial refund uploaded but the customer is disputing
+                   for the balance amount"
+    change: "the code was interpolated between 'disputing' and 'for the balance amount';
+             description rejoined, no characters altered"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1149"
+
+  - code: "1150"
+    damage: [text, layout]
+    as_scanned: "closed/freeze/tien marked"
+    corrected_to: "closed/freeze/lien marked"
+    change: "tien -> lien; 'which ts invalid reason' -> 'which is invalid reason'; stray 'A'
+             dropped; description rejoined around the interpolated code"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1150"
+
+  - code: "1151"
+    damage: [layout]
+    as_scanned: "1151 mien"
+    corrected_to: "1151 - Rejection reason mentioned as customer not giving debit consent which
+                   is invalid reason"
+    change: "stray 'mien' dropped; description rejoined around the interpolated code"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1151"
+
+  - code: "1154"
+    damage: [code, missing]
+    absent: description
+    as_scanned: "1184"
+    corrected_to: "1154 - The refund has failed as per the refund details in the rejection
+                   document"
+    change: "1184 -> 1154; description absent from the scan entirely, restored from the rulebook"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1154"
+    note: "This is the row the collapsed final block cost: four codes, three descriptions."
+
+  - code: "1155"
+    damage: [text]
+    as_scanned: "TAN details not matching with invoice details"
+    corrected_to: "TXN details not matching with invoice details"
+    change: "TAN -> TXN"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1155"
+
+  - code: "1156"
+    damage: [code]
+    as_scanned: "4156"
+    corrected_to: "1156"
+    change: "4156 -> 1156 (leading digit)"
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1156"
+
+# Rows the scan rendered correctly. Listed so the reconciliation is a statement about all 28
+# codes rather than only the damaged ones, and so a test can assert these were left alone.
+clean:
+  - "1130"
+  - "1133"
+  - "1134"
+  - "1135"
+  - "1137"
+  - "1138"
+  - "1141"
+  - "1142"
+  - "1143"
+  - "1144"
+  - "1152"
+  - "1153"
+  - "1157"

@@ -172,7 +172,7 @@ def test_extracting_a_born_digital_circular_needs_no_ocr():
 
 @needs_corpus
 def test_every_circular_has_at_least_one_non_empty_record(corpus):
-    """One body record per circular, plus the curated tables that supplement two of them."""
+    """One body record per circular, plus the curated tables that supplement three of them."""
     curated = [r for r in corpus if r.extraction_method == EXTRACTION_CURATED]
     assert len(corpus) == len(source_pdfs()) + len(curated)
     for record in corpus:
@@ -315,7 +315,7 @@ def test_curated_records_supplement_rather_than_replace(corpus):
     """The OCR'd bodies must still be present; curation adds, it does not delete."""
     by_id = {r.doc_id: r for r in corpus}
     curated = [r for r in corpus if r.extraction_method == EXTRACTION_CURATED]
-    assert len(curated) == 2, "exactly the two verified tables should be curated"
+    assert len(curated) == 3, "exactly the three verified tables should be curated"
     for record in curated:
         assert record.supersedes_doc_id in by_id, record.doc_id
         superseded = by_id[record.supersedes_doc_id]
@@ -334,9 +334,14 @@ def test_curated_records_carry_the_same_provenance_shape(corpus):
 
 
 @needs_corpus
-def test_only_the_two_verified_tables_are_curated(corpus):
+def test_only_the_three_verified_tables_are_curated(corpus):
+    """A curated record asserts a human verified it. The set stays small and named on purpose."""
     ids = {r.doc_id for r in corpus if r.extraction_method == EXTRACTION_CURATED}
-    assert ids == {"oc_208_sec_c_evidence_map_curated", "oc_184b_rgnb_response_table_curated"}
+    assert ids == {
+        "oc_208_sec_c_evidence_map_curated",
+        "oc_184b_rgnb_response_table_curated",
+        "oc_208a_annexure_a_reject_taxonomy_curated",
+    }
 
 
 @needs_corpus
