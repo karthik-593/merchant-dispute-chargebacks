@@ -36,6 +36,7 @@ from src.retrieval.retrievers import (
     BM25Retriever,
     DenseRetriever,
     HybridRetriever,
+    RetrievalHit,
     _minmax,
     tokenize,
 )
@@ -413,3 +414,89 @@ def test_every_encoder_under_test_is_registered_with_its_trained_prefixes():
     # e5 needs its prefixes or it degrades; gte and MiniLM were trained without any.
     assert EMBEDDINGS["e5-large-v2"]["query_prefix"] == "query: "
     assert EMBEDDINGS["gte-large"]["query_prefix"] == ""
+
+
+# --- parent expansion (M7 final arm) -----------------------------------------------------------
+
+
+@needs_corpus
+def test_expansion_collapses_siblings_to_one_parent(chunks):
+    """The only way expansion moves a rank: many rows of a table become one unit."""
+    from src.retrieval.parent_expansion import DOCUMENT, ParentExpander
+
+    expander = ParentExpander(chunks, mode=DOCUMENT)
+    hits = BM25Retriever(chunks).search("reason code evidence", 40)
+    parents = expander.expand(hits)
+    assert len(parents) < len(hits), "collapse is the mechanism; without it nothing moves"
+    assert len({p.chunk.doc_id for p in parents}) == len(parents), "one parent per document"
+    assert [p.rank for p in parents] == list(range(1, len(parents) + 1))
+
+
+@needs_corpus
+def test_a_parent_inherits_the_best_rank_of_its_rows(chunks):
+    """A buried row becomes reachable through a well-ranked sibling. That is the whole claim."""
+    from src.retrieval.parent_expansion import DOCUMENT, ParentExpander
+
+    hits = BM25Retriever(chunks).search("deemed acceptance", 60)
+    parents = ParentExpander(chunks, mode=DOCUMENT).expand(hits)
+    for parent in parents:
+        members = [h.rank for h in hits if h.chunk.doc_id == parent.chunk.doc_id]
+        assert members, parent.chunk.doc_id
+    first_doc = hits[0].chunk.doc_id
+    assert parents[0].chunk.doc_id == first_doc, "the best row's document must lead"
+
+
+@needs_corpus
+def test_a_window_parent_stays_bounded_while_a_document_parent_does_not(corpus):
+    """The bounded window is what keeps a hit meaning something about locality.
+
+    Built on structure_aware chunks deliberately: parent expansion is a row-grain idea, and the
+    module's sentence-grain fixture puts the whole reject table in two chunks, where a window and
+    a document are the same thing and the test would pass without testing anything.
+    """
+    from src.retrieval.chunkers import StructureAwareChunker
+    from src.retrieval.parent_expansion import DOCUMENT, WINDOW, ParentExpander
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    target = next(
+        c
+        for c in chunks
+        if c.doc_id == "oc_208a_annexure_a_reject_taxonomy_curated"
+        and "Reason code 1140" in c.text
+    )
+    hit = RetrievalHit(rank=1, score=1.0, chunk=target)
+    window = ParentExpander(chunks, mode=WINDOW, window=2).expand([hit])[0]
+    document = ParentExpander(chunks, mode=DOCUMENT).expand([hit])[0]
+    assert window.chunk.n_tokens < document.chunk.n_tokens
+    assert target.text in window.chunk.text and target.text in document.chunk.text
+
+
+@needs_corpus
+def test_expansion_never_loses_the_row_it_expanded(chunks):
+    """A parent that dropped its own row would silently break every anchor test."""
+    from src.retrieval.parent_expansion import MODES, ParentExpander
+
+    sample = chunks[:40]
+    for mode in MODES:
+        expander = ParentExpander(chunks, mode=mode, window=2)
+        for chunk in sample:
+            parent = expander.expand([RetrievalHit(rank=1, score=1.0, chunk=chunk)])[0]
+            assert chunk.text in parent.chunk.text, f"{mode} lost {chunk.chunk_id}"
+
+
+@needs_corpus
+def test_expansion_preserves_provenance(chunks):
+    from src.retrieval.parent_expansion import WINDOW, ParentExpander
+
+    hit = RetrievalHit(rank=1, score=1.0, chunk=chunks[10])
+    parent = ParentExpander(chunks, mode=WINDOW).expand([hit])[0]
+    assert parent.doc_id == chunks[10].doc_id
+    assert parent.chunk.page_start >= 1
+    assert parent.doc_id in parent.citation()
+
+
+def test_an_unknown_expansion_mode_is_refused():
+    from src.retrieval.parent_expansion import ParentExpander
+
+    with pytest.raises(ValueError, match="unknown expansion mode"):
+        ParentExpander(chunks=[], mode="parent-ish")
