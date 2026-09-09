@@ -37,11 +37,17 @@ STRUCTURE_MIN_TOKENS = 24
 
 _SENTENCE_END = re.compile(r"(?<=[.!?;:])\s+")
 
-# Boundaries a document announces about itself. Order matters: the curated records use the first
-# two, and everything else falls back to numbered clauses and headings.
-_STRUCTURE_BOUNDARIES = (
-    re.compile(r"^Reason code\s+\S+", re.I),  # curated OC 208 §C entries
+# A ROW boundary opens an atomic unit of a source table: one reason code, one RGNB row. These are
+# complete citation units at any length — a six-token reason code is a whole rule, and fusing two
+# of them yields a chunk that answers two different questions and cites neither cleanly.
+_ROW_BOUNDARIES = (
+    re.compile(r"^Reason code\s+\S+", re.I),  # curated OC 208 §C entries and OC 208A reject codes
     re.compile(r"^Flag\s+\S+\s*/\s*Code\s+\S+", re.I),  # curated OC 184B rows
+)
+
+# A PROSE boundary opens a section of running text. Here the minimum-token floor is right: an
+# eight-token fragment of a sentence is a sliver that means nothing on its own.
+_PROSE_BOUNDARIES = (
     re.compile(r"^Merchant-type rule\b", re.I),
     re.compile(r"^Auto-loss conditions\b", re.I),
     re.compile(r"^Annexure\s*[-–—]?\s*\w*", re.I),
@@ -49,6 +55,9 @@ _STRUCTURE_BOUNDARIES = (
     re.compile(r"^\s*[ivxlc]{1,4}[.)]\s+\S", re.I),  # roman-numeral clauses
     re.compile(r"^\s*[A-Z][A-Z /&-]{8,}\s*:?\s*$"),  # ALL CAPS headings
 )
+
+# Boundaries a document announces about itself.
+_STRUCTURE_BOUNDARIES = _ROW_BOUNDARIES + _PROSE_BOUNDARIES
 
 
 class Chunk(BaseModel):
@@ -245,6 +254,11 @@ class StructureAwareChunker:
     For the curated records that means one reason-code entry or one RGNB row per chunk, which is
     exactly the unit a question asks about. Elsewhere it falls back to numbered clauses and
     headings, and to blank-line paragraphs where a document announces no structure at all.
+
+    The minimum-token floor applies to PROSE only. A table row is an atomic unit at any length and
+    is never merged into its neighbour; a short prose block still is, because a fragment of a
+    sentence means nothing alone. Same token count, different thing - which is the distinction
+    this chunker exists to encode.
     """
 
     name = "structure_aware"
@@ -259,6 +273,16 @@ class StructureAwareChunker:
     @staticmethod
     def _is_boundary(line: str) -> bool:
         return any(pattern.match(line) for pattern in _STRUCTURE_BOUNDARIES)
+
+    @staticmethod
+    def _is_row_boundary(line: str) -> bool:
+        """Whether this line opens an atomic row of a source table.
+
+        The distinction the minimum-token floor cannot make on its own: a six-token reason code
+        and a six-token sentence fragment are the same length and completely different things.
+        One is a citation unit, the other is debris.
+        """
+        return any(pattern.match(line) for pattern in _ROW_BOUNDARIES)
 
     def _blocks(self, body: str) -> list[str]:
         """Break a page into the blocks the document announces."""
@@ -302,8 +326,15 @@ class StructureAwareChunker:
         size = 0
         for text, page in bounded:
             length = len(_tokens(text))
-            starts_block = self._is_boundary(text.splitlines()[0] if text else "")
-            if current and (starts_block or size + length > self.maximum) and size >= self.minimum:
+            first_line = text.splitlines()[0] if text else ""
+            starts_block = self._is_boundary(first_line)
+            # A table row always closes the chunk before it, however short that chunk is. The
+            # floor exists to stop prose fragmenting into slivers; applied to a table it fuses
+            # adjacent near-duplicate rows into one chunk, which is neither a citation unit nor
+            # something a question about one of those rows can be scored against.
+            starts_row = self._is_row_boundary(first_line)
+            flush_prose = (starts_block or size + length > self.maximum) and size >= self.minimum
+            if current and (starts_row or flush_prose):
                 chunk = _build(record, self.name, len(chunks), current)
                 if chunk:
                     chunks.append(chunk)

@@ -201,3 +201,91 @@ def test_length_split_partitions_every_query(corpus, queries):
     assigned = set().union(*groups.values())
     assert assigned == {q["id"] for q in queries["queries"]}
     assert sum(len(ids) for ids in groups.values()) == len(queries["queries"])
+
+
+# --- the merge floor is for prose, not for table rows ------------------------------------------
+#
+# STRUCTURE_MIN_TOKENS exists to stop running prose fragmenting into slivers. Applied to a table
+# it did the opposite of its job: reject rows fell under the floor once their uniform boilerplate
+# was removed, so adjacent near-duplicate codes fused into one chunk. A chunk holding 1156 and
+# 1157 is not a citation unit, and a query about either cannot be scored against it.
+
+CURATED_TABLES = {
+    "oc_208a_annexure_a_reject_taxonomy_curated": r"Reason code (\d{4})",
+    "oc_184b_rgnb_response_table_curated": r"Code (N[BARD]\d)",
+    "oc_208_sec_c_evidence_map_curated": r"Reason code (RC_\S+)",
+}
+
+
+@needs_corpus
+def test_a_table_row_is_never_fused_with_its_neighbour(corpus):
+    """One row, one chunk - at any length. This is what structure_aware claims to do."""
+    import re
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    for doc_id, pattern in CURATED_TABLES.items():
+        for chunk in (c for c in chunks if c.doc_id == doc_id):
+            codes = re.findall(pattern, chunk.text)
+            assert len(codes) <= 1, (
+                f"{chunk.chunk_id} fuses {codes}; a chunk answering two rows cites neither"
+            )
+
+
+@needs_corpus
+def test_every_table_row_gets_its_own_chunk(corpus):
+    """Counted from the other side: no row may go missing into a neighbour's chunk."""
+    import re
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    for doc_id, pattern in CURATED_TABLES.items():
+        record = next(r for r in corpus if r.doc_id == doc_id)
+        in_source = len(re.findall(pattern, record.text))
+        carried = sum(1 for c in chunks if c.doc_id == doc_id and re.findall(pattern, c.text))
+        assert carried == in_source, f"{doc_id}: {in_source} rows but {carried} row chunks"
+
+
+@needs_corpus
+def test_short_rows_survive_the_floor(corpus):
+    """The rows this fix exists for are well under STRUCTURE_MIN_TOKENS and must stand alone."""
+    from src.retrieval.chunkers import STRUCTURE_MIN_TOKENS
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    reject = [
+        c for c in chunks if c.doc_id == "oc_208a_annexure_a_reject_taxonomy_curated"
+    ]
+    short = [c for c in reject if c.n_tokens < STRUCTURE_MIN_TOKENS]
+    assert short, "the reject rows are short; if none are, the record changed shape"
+
+
+@needs_corpus
+def test_the_floor_still_applies_to_prose(corpus):
+    """The other half: prose must not start fragmenting into slivers.
+
+    Row boundaries occur only in the curated tables (plus one harmless table header in OC 206A),
+    so prose chunking is structurally untouched by the row rule - this pins that.
+    """
+    from src.retrieval.chunkers import STRUCTURE_MIN_TOKENS
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    prose = [c for c in chunks if c.doc_id not in CURATED_TABLES]
+    tiny = [c for c in prose if c.n_tokens < STRUCTURE_MIN_TOKENS]
+    assert len(tiny) <= 2, (
+        f"prose over-fragmented: {[(c.doc_id, c.n_tokens) for c in tiny]}"
+    )
+
+
+def test_row_and_prose_boundaries_are_kept_apart():
+    from src.retrieval.chunkers import (
+        _PROSE_BOUNDARIES,
+        _ROW_BOUNDARIES,
+        _STRUCTURE_BOUNDARIES,
+    )
+
+    assert len(_ROW_BOUNDARIES) == 2, "reason-code entries and RGNB rows"
+    assert not set(_ROW_BOUNDARIES) & set(_PROSE_BOUNDARIES)
+    assert set(_STRUCTURE_BOUNDARIES) == set(_ROW_BOUNDARIES) | set(_PROSE_BOUNDARIES)
+    chunker = StructureAwareChunker()
+    assert chunker._is_row_boundary("Reason code 1142 - Invalid evidence")
+    assert chunker._is_row_boundary("Flag BGND / Code ND2 - P2M U2")
+    assert not chunker._is_row_boundary("1. Total chargebacks per customer")
+    assert chunker._is_boundary("1. Total chargebacks per customer")
