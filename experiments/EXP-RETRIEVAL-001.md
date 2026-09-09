@@ -168,6 +168,46 @@ one than the contaminated measurement suggested**, not the marginal one it appea
 h35) · 2 CHUNK (h01, h05). h10 moved to FOUND — e5 now ranks it 1 — because the trigger prose it
 anchors moved into the header and out of a row's shadow.
 
+### Stage B: the embedding was never the bottleneck
+
+Six encoders on the verified hard set — three incumbents (~22–33M, 384-dim) and three larger
+candidates (~335M, 1024-dim): `bge-large-en-v1.5`, `e5-large-v2`, and `gte-large`, the last chosen
+as a third *recipe* rather than a third size, since BGE and E5 were already represented.
+
+| encoder | dim | top-5 | past 50 | reach@100 | rule@5 hard | rule@5 all-50 | ms/q | VRAM |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **bge-small-en-v1.5** | 384 | 2 | 6 | **8** | 0.182 | **0.640** | 10.1 | **0.45** |
+| e5-small-v2 | 384 | **3** | 7 | 4 | **0.273** | 0.560 | 9.9 | 0.59 |
+| all-MiniLM-L6-v2 | 384 | 1 | 6 | **8** | 0.091 | 0.520 | **6.0** | 0.52 |
+| bge-large-en-v1.5 | 1024 | 2 | 7 | 6 | 0.182 | 0.600 | 16.7 | 2.52 |
+| e5-large-v2 | 1024 | **3** | 6 | 6 | **0.273** | 0.580 | 19.9 | 3.86 |
+| gte-large | 1024 | 2 | 7 | 6 | 0.182 | 0.580 | 18.7 | 4.13 |
+
+**Scaling 8× the parameters and 2.7× the dimensions buys nothing.** `e5-large` ties `e5-small` at
+3/11. Every large model is *worse* than `bge-small` on the aggregate. And the decisive number:
+
+**The per-row ensemble ceiling is 3/11 — a gain of ZERO over the best single encoder.** All six
+encoders succeed on the same three rows (h10, h34, h36) and fail on the same eight. An ensemble
+would triple encode cost and index size to buy nothing at all.
+
+**Four rows are buried past rank 50 by every one of the six**: h01, h02, h03, h09. No encoder
+reaches them; a different encoder cannot invent signal a 26-token row does not carry.
+
+**This retires the Stage 3 "EMBEDDING" verdict.** Those five rows looked like an embedding problem
+because weak encoders disagreed about *where* to bury them. Given six encoders spanning two size
+classes and three training recipes, none solves any of them. The disagreement was noise between
+models that all fail.
+
+**Recommendation: keep `bge-small-en-v1.5`.** Best aggregate (0.640), best reachability for a
+future reranker (8/11 within depth 100), and 8× cheaper in VRAM than any large candidate. The only
+argument against it is one row of hard-set top-5 coverage, which is inside the noise floor. The
+earlier choice was made on aggregate evidence and happens to survive per-row evidence too — not
+because the aggregate was right, but because nothing else is better on either.
+
+**The real residue is the chunk.** Eight of eleven hard rows are unreachable at top-5 by any
+encoder, and the two clean CHUNK cases (h01 at 27 tokens, h05 at 26) show why. That is
+parent-expansion work, and it is now the only lever left with evidence behind it.
+
 ### The B3 ruler defect (unchanged)
 
 `whole_document` and `sentence` still inflate on near-duplicate queries: the entire 9-row RGNB

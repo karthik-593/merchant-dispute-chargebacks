@@ -59,6 +59,29 @@ EMBEDDINGS: dict[str, dict[str, str]] = {
         "query_prefix": "",
         "passage_prefix": "",
     },
+    # Larger candidates, added for the M7 embedding re-selection. The three above are all
+    # ~22-33M general-purpose encoders and all of them bury paraphrased regulatory rows, so the
+    # question is whether that is a size limit, a family limit, or neither. BERT-large sized,
+    # ~1.3 GB each - trivial against 8 GB, which the small models were never testing.
+    "bge-large-en-v1.5": {
+        "model_id": "BAAI/bge-large-en-v1.5",
+        "query_prefix": "Represent this sentence for searching relevant passages: ",
+        "passage_prefix": "",
+    },
+    "e5-large-v2": {
+        "model_id": "intfloat/e5-large-v2",
+        "query_prefix": "query: ",
+        "passage_prefix": "passage: ",
+    },
+    # A third training recipe rather than a third size. BGE and E5 are both represented above, so
+    # scaling either only answers "is it too small". GTE is retrieval-tuned on a different data
+    # mixture, takes no query/passage prefix, and needs no trust_remote_code - so a win here is a
+    # recipe result, not a parameter-count one.
+    "gte-large": {
+        "model_id": "thenlper/gte-large",
+        "query_prefix": "",
+        "passage_prefix": "",
+    },
 }
 
 DEFAULT_FUSION_ALPHA = 0.5

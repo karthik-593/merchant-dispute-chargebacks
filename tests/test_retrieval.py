@@ -350,3 +350,66 @@ def test_the_diagnosis_runs_on_structure_aware_only():
     from src.evaluation.eval_first_stage import FEEDER
 
     assert FEEDER == "structure_aware"
+
+
+# --- embedding re-selection (M7 Stage B) -------------------------------------------------------
+
+
+def _enc(name, incumbent=False, **ranks):
+    from src.evaluation.eval_embedding_reselection import EncoderResult
+
+    return EncoderResult(name=name, incumbent=incumbent, ranks=ranks)
+
+
+def test_top5_and_buried_counts_split_reachable_from_hopeless():
+    """A row at 40 is a reranker away; a row past 50 is not. The counts must not blur them."""
+    result = _enc("x", a=1, b=5, c=40, d=51, e=None)
+    assert set(result.in_top_k()) == {"a", "b"}
+    assert set(result.past()) == {"d", "e"}
+    assert set(result.reachable_at(100)) == {"a", "b", "c", "d"}, "51 is within a depth-100 cut"
+    assert set(result.reachable_at(50)) == {"a", "b", "c"}
+
+
+def test_a_row_every_encoder_buries_is_not_an_embedding_problem():
+    """The distinction the arm exists to draw: swapping encoders cannot invent absent signal."""
+    from src.evaluation.eval_embedding_reselection import Reselection
+
+    selection = Reselection(
+        results=[_enc("one", a=1, b=180), _enc("two", a=60, b=None), _enc("three", a=90, b=195)]
+    )
+    assert selection.universally_buried() == ["b"]
+    assert selection.best_per_row()["a"] == ("one", 1)
+
+
+def test_the_ensemble_ceiling_is_the_union_not_the_sum():
+    """If every encoder wins the same rows, an ensemble buys nothing - that must be visible."""
+    from src.evaluation.eval_embedding_reselection import Reselection
+
+    same = Reselection(results=[_enc("one", a=1, b=90), _enc("two", a=2, b=95)])
+    covered = {q for q in ("a", "b") if any((r.ranks.get(q) or 10**6) <= 5 for r in same.results)}
+    assert covered == {"a"}, "two encoders agreeing on one row is still one row"
+
+
+def test_the_incumbents_and_candidates_are_kept_apart():
+    from src.evaluation.eval_embedding_reselection import (
+        ALL_ENCODERS,
+        CANDIDATES,
+        INCUMBENTS,
+    )
+
+    assert not set(INCUMBENTS) & set(CANDIDATES)
+    assert set(ALL_ENCODERS) == set(INCUMBENTS) | set(CANDIDATES)
+    assert len(ALL_ENCODERS) == 6
+
+
+def test_every_encoder_under_test_is_registered_with_its_trained_prefixes():
+    from src.evaluation.eval_embedding_reselection import ALL_ENCODERS
+    from src.retrieval.retrievers import EMBEDDINGS
+
+    for name in ALL_ENCODERS:
+        assert name in EMBEDDINGS, name
+        spec = EMBEDDINGS[name]
+        assert "model_id" in spec and "query_prefix" in spec and "passage_prefix" in spec
+    # e5 needs its prefixes or it degrades; gte and MiniLM were trained without any.
+    assert EMBEDDINGS["e5-large-v2"]["query_prefix"] == "query: "
+    assert EMBEDDINGS["gte-large"]["query_prefix"] == ""
