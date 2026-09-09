@@ -1,7 +1,32 @@
 # EXP-RETRIEVAL-001 — M7 retriever × embedding grid
 
-**Status:** results in, nothing frozen. `RETRIEVER_VERSION`, `EMBEDDING_VERSION` and
-`CHUNKER_VERSION` are set together by review.
+**Status: FROZEN (M7 closed, 2026-09-09).** `CHUNKER_VERSION = structure_aware/row-grain`,
+`RETRIEVER_VERSION = dense`, `EMBEDDING_VERSION = bge-small-en-v1.5`, `RERANKER_VERSION = NONE
+(rejected, scoped)`. Recorded with provenance in `configs/versions.yaml`; one MLflow run under
+`arm=freeze`. Corpus `corpus-v1.4`, query set `retrieval-v1.2.2`.
+
+**Every lever was tested and priced before anything was frozen:**
+
+| lever | configuration | outcome |
+| --- | --- | --- |
+| encoder | 6 models, 2 sizes, 3 recipes | **0 hard rows**; ensemble union = best single (3/11) |
+| depth | K_retrieve 25 → 100 | **1 row** (h02) |
+| reranker | cross-encoder over row-grain chunks | **negative** — 1 win, 4–9 regressions |
+| reranker | cross-encoder over ±2-row parents | **negative** — h02 and h32 both worse |
+| expansion | parent = ±2 rows | **0 rows** recovered |
+| expansion | parent = full table | **0 rows**; the +0.12 all-50 rise is the B3 ruler artefact at 25% of the corpus per query |
+
+**`bge-small` was kept on per-row evidence, not on the aggregate that hid the failures earlier.**
+Six encoders were tested; nothing is better on either axis. It has the best aggregate (0.640), the
+best reachability for any future second stage (8/11 within depth 100 against e5-small's 4), and 8×
+lower VRAM than any large candidate. The one argument against it is a single row of hard-set top-5
+coverage, inside the noise floor at n=11.
+
+**The residual finding is why retrieval closes here.** Eight rows (h01–h05, h09, h32, h35) fail on
+a **query–corpus vocabulary gap**, not a pipeline defect: the corpus states rules in domain
+language and the queries ask in lay language, and the bridge between them is knowledge the corpus
+never writes down. No similarity function crosses a bridge the text does not contain. Filed as the
+M8 query-rewrite benchmark at `data/eval/m8_query_rewrite_eval.yaml`.
 **Revision 2 (2026-09-08).** Supersedes revision 1. Re-run end to end after two changes to the
 inputs, neither of which was a retrieval change:
 

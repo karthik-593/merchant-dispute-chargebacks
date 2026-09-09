@@ -1,0 +1,152 @@
+# versions.yaml — the frozen components, and the experiment that earned each one.
+#
+# A frozen version is a claim that an experiment settled a choice. So each entry names the arm
+# that selected it and what the alternatives cost, and every rejection carries its SCOPE — the
+# distribution and configuration it was rejected under. A negative result recorded without its
+# scope hardens into a universal, and the next person inherits a closed door with no sign on it.
+#
+# Nothing here is set by a script. `eval_*` harnesses print "nothing is frozen here" and mean it.
+
+meta:
+  milestone: M7
+  frozen_on: "2026-09-09"
+  corpus_version: "corpus-v1.4"
+  query_set_version: "retrieval-v1.2.2"
+  scoring_metric: "rule-hit-rate@5 on the 50 discriminators; guards excluded"
+  corpus_note: "corpus-v1.4, NOT v1.2. v1.2 moved the verdict band out of per-row text; v1.2b
+                corrected the merge floor so table rows stop fusing; v1.3 put verbatim OC 184B
+                source wording into the RGNB record; v1.4 swept metadata out of row text in all
+                three curated records. Every number below was measured on v1.4, and naming an
+                earlier corpus would name one that produced none of the evidence."
+
+# ---------------------------------------------------------------------------
+# THE FROZEN COMPONENTS
+# ---------------------------------------------------------------------------
+
+CHUNKER_VERSION:
+  value: "structure_aware/row-grain"
+  detail: "One source-table row = one chunk, at any length. The minimum-token floor
+           (STRUCTURE_MIN_TOKENS = 24) applies to PROSE only; a row is an atomic citation unit
+           and is never fused into its neighbour."
+  selected_by: "M6 chunking comparison, corrected in the Stage 1b merge-floor arm"
+  why: "A six-token reason code and a six-token sentence fragment are the same length and
+        different things. Before the correction, reject rows fell under the floor and adjacent
+        near-duplicate codes fused - 13 chunks carrying two or three codes each, which is neither
+        a citation unit nor something a question about one of those rows can be scored against."
+  source: "configs/corpus/corpus_version.yaml, entry corpus-v1.2b"
+
+RETRIEVER_VERSION:
+  value: "dense"
+  selected_by: "M7 grid (EXP-RETRIEVAL-001), confirmed on the v1.2 hard query set"
+  why: "Hybrid was ahead on the easy 26-query set and lost that lead once the set was hard: BM25
+        fusion drags paraphrased near-duplicate rows down, because lexical overlap is exactly what
+        a paraphrased question does not have. Dense alone beat hybrid in 5 of 9 pairs on v1.2."
+  scope: "Chosen for THIS corpus's mix of dense identifiers and paraphrased queries. On a corpus
+          where queries quote the source vocabulary, BM25 fusion would likely win again - the v1
+          result said so before the query set was made hard."
+
+EMBEDDING_VERSION:
+  value: "bge-small-en-v1.5"
+  selected_by: "M7 Stage B embedding re-selection"
+  why: "Kept on PER-ROW evidence, not on the aggregate that hid the failures earlier. Six encoders
+        across two size classes and three training recipes were tested; nothing is better on
+        either axis. bge-small has the best aggregate (rule@5 0.640 over 50 discriminators), the
+        best reachability for any future second stage (8 of 11 hard rows within depth 100, against
+        e5-small's 4), and 8x lower VRAM than any large candidate (0.45 GB vs 2.5-4.1 GB). The
+        single argument against it is one row of hard-set top-5 coverage, inside the noise floor
+        at n=11."
+  ruled_out: "bge-large, e5-large and gte-large all failed the same hard rows as the small models
+              and were WORSE on the aggregate. Scaling 8x the parameters and 2.7x the dimensions
+              recovered zero rows."
+
+RERANKER_VERSION:
+  value: null
+  status: "REJECTED - scoped, see negative_results.reranker"
+  selected_by: "M7 reranker arm, re-tested in the parent-expansion arm"
+
+# ---------------------------------------------------------------------------
+# SCOPED NEGATIVE RESULTS
+#
+# Each of these is a door that was closed under stated conditions. None of them is a universal.
+# ---------------------------------------------------------------------------
+
+negative_results:
+  reranker:
+    verdict: "Rejected as a second stage."
+    evidence: "Over row-grain chunks: 1 win against 4 regressions with ms-marco-MiniLM and 1
+               against 9 with bge-reranker on structure_aware. Over +/-2-row expanded parents:
+               both remaining sibling rows got worse (h02 21 -> 25, h32 9 -> 24). No reranked
+               real-feeder cell beat the un-reranked feeder."
+    scope: "Rejected on the CURRENT query distribution - lay-phrased queries - over row-grain and
+            +/-2-row parent chunks. NOT re-tested against M8-rewritten domain-vocabulary queries.
+            The reranker failed on rows it REACHED, which is a different failure from not reaching
+            them; if an M8 query rewrite changes what the first stage reaches, the reranker may
+            warrant a re-test. This rejection is scoped, not universal."
+    revisit_when: "M8 query-rewrite is working and changes the candidate set."
+
+  parent_expansion:
+    verdict: "Rejected as a FIRST-STAGE RETRIEVAL fix."
+    evidence: "Improves ranks substantially - h01 >200 -> 27, h03 193 -> 24, h05 120 -> 12 - and
+               recovers ZERO rows into top-5 under either parent definition. The full-table
+               setting's aggregate rise (0.640 -> 0.760 over all 50) is the B3 ruler artefact: a
+               whole-table parent satisfies an anchor test without the retriever ever isolating a
+               row, at 9,703 context tokens per query, 25% of the corpus by token count."
+    scope: "Scoped to first-stage retrieval. NOT a statement that expansion is useless downstream:
+            an LLM may still benefit from expanded context at generation time, which is an M13/M14
+            question about what to SHOW the model, not about what to RETRIEVE."
+    revisit_when: "M13/M14 generation-context design."
+
+  hybrid_retrieval:
+    verdict: "Rejected in favour of dense-only."
+    evidence: "Hybrid was >= both of its ends at rule@5 in all 9 cells on the easy 26-query set,
+               and lost that property on the hard v1.2 set, where dense alone beat it in 5 of 9
+               pairs."
+    scope: "Scoped to this corpus's identifier-plus-paraphrase mix. The mechanism is specific:
+            BM25 has no purchase on a paraphrased near-duplicate question and drags the fused
+            ranking down. A query distribution that quotes source vocabulary would reverse it."
+    revisit_when: "The query distribution changes - which M8 query-rewrite may itself cause."
+
+# ---------------------------------------------------------------------------
+# THE RESIDUAL FINDING - why retrieval closes here rather than continuing
+# ---------------------------------------------------------------------------
+
+residual_finding:
+  headline: "The remaining failures are a QUERY-CORPUS VOCABULARY GAP, not a pipeline defect."
+  rows: ["h01", "h02", "h03", "h04", "h05", "h09", "h32", "h35"]
+  rows_note: "Eight rows that NO encoder reaches at top-5. h10 is deliberately excluded: e5-small
+              ranks it 1, so it is an encoder-disagreement case, not a vocabulary gap - though it
+              sits at 16 under the frozen bge-small and is filed as a borderline ninth case."
+  argument: "The corpus states rules in domain language - 'Deemed acceptance of P2M Generic good
+             faith chargeback'. A lay query asks 'how long before that silence counts as
+             agreement'. They share no lexical overlap, and the bridge between them - that deemed
+             acceptance IS silence-becomes-agreement - is domain knowledge the corpus never
+             states. No similarity function crosses a bridge the text does not contain."
+  levers_exhausted: "encoder (6 models: 0 rows), depth (25->100: 1 row), reranker over rows
+                     (negative), reranker over parents (negative), parent-expansion (0 rows)."
+  belongs_to: "L2 narrative -> domain-vocabulary, i.e. M8. By design, not by shortfall."
+  eval_set: "data/eval/m8_query_rewrite_eval.yaml"
+
+# ---------------------------------------------------------------------------
+# EXPLICITLY NOT DONE - decisions, not omissions
+# ---------------------------------------------------------------------------
+
+not_done:
+  plain_language_rule_copies:
+    decision: "REJECTED."
+    why: "A hand-authored plain-language gloss placed in the SEARCH corpus breaks provenance. At
+          retrieval time a summary is indistinguishable from source: it cannot be grounded, and it
+          cannot be verified against any circular. The whole premise of this system is that every
+          claim traces to a circular and section."
+    if_revisited: "Only as embed-only metadata, with the verbatim source as the RETURNED text -
+                   never as a retrievable passage in its own right."
+    sequencing: "Deferred until the M8 query-side fix is proven insufficient. The query rewrite is
+                 reversible and provenance-preserving; editing the corpus is neither. Do the
+                 reversible fix first."
+
+  recall_at_k_target_defect:
+    decision: "Still OPEN, deferred to retrieval-v1.3."
+    detail: "13 of the carried-over 26 queries list a document that does not contain their
+             anchors, inflating Recall@K; 7 omit a document that does. Both lists are pinned in
+             tests/test_query_freeze.py so the defect is tracked and cannot grow."
+    impact_on_this_freeze: "None. rule-hit-rate@5 - the metric this freeze was decided on - reads
+                            chunk text and is unaffected."
