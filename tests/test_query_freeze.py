@@ -43,7 +43,7 @@ def meta(queries):
 
 def test_the_set_is_frozen_and_versioned(meta, queries):
     assert meta["frozen"] is True
-    assert meta["version"] == "retrieval-v1.2"
+    assert meta["version"] == "retrieval-v1.2.1"
     assert meta["query_count"] == len(queries["queries"]) == 52
     roles = [q["role"] for q in queries["queries"]]
     assert roles.count(DISCRIMINATOR) == meta["discriminator_count"] == 50
@@ -67,7 +67,10 @@ def test_the_carried_over_queries_keep_their_scoring_content(meta, queries):
     carried = [q for q in queries["queries"] if q["id"] in CARRIED_OVER]
     assert len(carried) == 26
     assert scoring_fingerprint(carried) == meta["carried_over_scoring_sha256"]
-    assert meta["carried_over_scoring_sha256"] == meta["changelog"][-1]["hashes"]["all_before"]
+    # v1.2 is the entry that introduced the carried-over set; later entries have their own
+    # before-hashes and must not be conflated with it.
+    v12 = next(c for c in meta["changelog"] if c["version"] == "retrieval-v1.2")
+    assert meta["carried_over_scoring_sha256"] == v12["hashes"]["all_before"]
 
 
 def test_the_discriminator_hash_covers_exactly_the_discriminators(meta, queries):
@@ -178,26 +181,55 @@ def test_the_v11_amendment_record_is_still_intact(meta, queries):
 
 def test_the_changelog_accounts_for_the_amendment(meta, queries):
     entry = meta["changelog"][-1]
-    assert entry["version"] == meta["version"] == "retrieval-v1.2"
-    assert entry["supersedes"] == "retrieval-v1.1"
-    assert entry["queries_added"] == 26
-    assert entry["discriminators_added"] == 24
-    assert entry["regression_guards_added"] == 2
-    for field in ("change", "why", "weighting", "targets_computed", "reconciliation_only",
-                  "regression_guards", "not_added", "metric_effect"):
+    assert entry["version"] == meta["version"] == "retrieval-v1.2.1"
+    assert entry["supersedes"] == "retrieval-v1.2"
+    assert entry["queries_amended"] == ["h34"]
+    assert entry["queries_unchanged"] == 51
+    for field in ("change", "why", "also_verified", "verbatim_anchors", "no_metric_claim"):
         assert entry[field].strip(), field
 
     hashes = entry["hashes"]
     assert hashes["all_after"] == meta["queries_sha256"]
     assert hashes["all_before"] != hashes["all_after"]
     assert hashes["discriminators_after"] == meta["discriminators_sha256"]
+    h34 = next(q for q in queries["queries"] if q["id"] == "h34")
+    assert query_fingerprint(h34) == hashes["h34_after"]
+    assert hashes["h34_before"] != hashes["h34_after"]
+
+
+def test_only_h34_moved_in_v121(meta, queries):
+    """The other 51 must hash exactly as they did under v1.2, over their scoring fields."""
+    rest = [q for q in queries["queries"] if q["id"] != "h34"]
+    assert len(rest) == 51
+    entry = meta["changelog"][-1]
+    assert scoring_fingerprint(rest) == entry["hashes"]["unchanged_51_scoring"]
+
+
+def test_h34_uses_the_source_verified_wording(queries):
+    """'says', not 'of'. Anchoring on a guessed word scores a string the circular lacks."""
+    h34 = next(q for q in queries["queries"] if q["id"] == "h34")
+    assert h34["answer_anchors"] == [
+        "1132",
+        "Rejection document says merchant accepting dispute",
+    ]
+
+
+def test_unresolved_source_strings_are_recorded_not_guessed(meta):
+    """Rows still on the rulebook gloss are named, so nobody infers them by symmetry later."""
+    pending = meta["pending_source_strings"]
+    assert pending, "if every row were verified this list would be gone, not empty"
+    assert any("NA2" in item for item in pending)
 
 
 def test_every_added_query_has_a_recorded_hash(meta, queries):
-    recorded = meta["changelog"][-1]["added_query_hashes"]
+    v12 = next(c for c in meta["changelog"] if c["version"] == "retrieval-v1.2")
+    recorded = v12["added_query_hashes"]
     added = [q for q in queries["queries"] if q["id"] not in CARRIED_OVER]
     assert len(added) == len(recorded) == 26
     for query in added:
+        # h34's anchor was corrected in v1.2.1, so its v1.2 hash is deliberately stale.
+        if query["id"] == "h34":
+            continue
         assert query_fingerprint(query) == recorded[query["id"]], query["id"]
 
 

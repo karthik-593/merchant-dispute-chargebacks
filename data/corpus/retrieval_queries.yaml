@@ -20,7 +20,7 @@
 # every query is answerable by at least one chunk under at least one chunking strategy.
 
 meta:
-  version: "retrieval-v1.2"
+  version: "retrieval-v1.2.1"
   frozen: true
   query_count: 52
   discriminator_count: 50
@@ -33,8 +33,8 @@ meta:
   # query means, not how the YAML is wrapped: re-folding a question or moving a comment leaves
   # them untouched, while any change to an id, question, target, anchor or topic moves them.
   # `tests/test_query_freeze.py` recomputes all three and fails if any drifts.
-  queries_sha256: "d0be53a26ecabd890176968f474ee52a71f012519c8bb21f84418decd61b22b8"
-  discriminators_sha256: "758930cf826ee4793cd4ef366e1311702ae1c0dec2991209a0c74bfc5131f363"
+  queries_sha256: "3a802957f6c0a768aed44fb2e97af785a1e1d4a9eeebc162d1319ecc2ac6bade"
+  discriminators_sha256: "f9cfa8527b5412b8c4f8d3cc1044bea871df52fe36a874a5b95b4479664678b5"
   unamended_sha256: "1d1a30bbebb5d19c3cd0fffad680a96d90b3c1482bf997915f14c0f8ec98c212"
   unamended_note: "Hash over the 25 queries NOT touched in v1.1, in file order. It is identical
                    to the same 25 under retrieval-v1, which is what 'the rest of the set did not
@@ -48,6 +48,17 @@ meta:
   # answer_anchors - and nothing else. That hash is identical to v1.1's full hash of the same 26,
   # because under v1.1 those WERE all the fields. Asserted in test_query_freeze.py.
   carried_over_scoring_sha256: "257b38f5ba184b13ef4f8f64b69177e12a9314c588cfd146f5d0c5e3297a4151"
+
+  # RGNB rows whose verbatim source wording is still needed. The rulebook gloss is in use and the
+  # curated record marks each one "[rulebook gloss - source wording not verified]". They are NOT
+  # inferred by symmetry: "Accepting P2P chargeback" makes "Accepting P2M chargeback" an obvious
+  # guess for NA2, and page 3 of the OC 184B scan - the rotated table OCR destroyed - offers
+  # nothing to check a guess against.
+  pending_source_strings:
+    - "NB1, NB2, NA2, NR2, NR3, ND1, ND2 (OC 184B RGNB rows)"
+    - "the RGNB closing note anchored by h09"
+    - "the CD1/CD2 cap linkage anchored by h10"
+    - "penalty field rendering anchored by h03"
 
   changelog:
     - version: "retrieval-v1.1"
@@ -168,6 +179,43 @@ meta:
         h36: "097364f0b69e08c65f6cd58d5b22564057e91470a3663492b89e030041c700ad"
         h21: "16f789c27999dee7e7d704e41c1b7f7ae63423025a5697dad3e1670825346409"
         h33: "660617c6b17b304ffd555a8a2b749d168c49c6559a310f748babfa70f08e24cf"
+
+    - version: "retrieval-v1.2.1"
+      date: "2026-09-09"
+      supersedes: "retrieval-v1.2"
+      queries_added: 0
+      queries_amended: ["h34"]
+      queries_unchanged: 51
+      change: "h34's second anchor becomes the source-verified wording: 'Rejection document SAYS
+               merchant accepting dispute', not 'of'. Nothing else in the set moved - the other
+               51 queries hash identically over their scoring fields."
+      why: "A source-verification pass against the OC 208A PDF resolved a word the OCR
+            transcription had flagged as uncertain. The rulebook had recorded 'OCR gave document
+            A merchant; the connecting word is uncertain, the sense is not', and an earlier
+            revision resolved it to 'of' - a guess. The source says 'says'. Anchoring on a
+            guessed word means the query scores a string the circular does not contain."
+      also_verified: "h32 (1136), h35 (1154) and h36 (1155) were confirmed against the same
+                      source pass and needed no change. Their NEEDS-VERIFY status is lifted; they
+                      rejoin the scored set and the embedding diagnosis unchanged."
+      verbatim_anchors: "Fix 5 pass: six anchors key on a rulebook gloss or a curated
+                         construction rather than verbatim source wording - q14 ('refund already
+                         processed'), h03 (\"penalty bank's choice\"), h04 ('amount already
+                         credited'), h05 ('goods/service already provided'), h09 ('No response
+                         within TAT means deemed acceptance'), h10 ('CD1 or CD2 chargeback cap').
+                         Only NA1 and NR1 have verified source strings so far, and h04's anchor
+                         survives NR1's switch because 'amount already credited' appears in both
+                         wordings. The other four are UNRESOLVED pending source text and were NOT
+                         guessed at - see meta.pending_source_strings."
+      no_metric_claim: "Not asserted in advance. The h34 anchor change is measured in the re-run
+                        and reported with its cause."
+      hashes:
+        all_before: "d0be53a26ecabd890176968f474ee52a71f012519c8bb21f84418decd61b22b8"
+        all_after: "3a802957f6c0a768aed44fb2e97af785a1e1d4a9eeebc162d1319ecc2ac6bade"
+        discriminators_after: "f9cfa8527b5412b8c4f8d3cc1044bea871df52fe36a874a5b95b4479664678b5"
+        h34_before: "0b8c0ba35075d9f1d81b600973cb01fea5a4ed23e135c796dfb96a8bd8cc5640"
+        h34_after: "b3d8f29073dfbb6fc31173c19cca89285f5ccaed8fd1e715a9f08b7c12857e38"
+        unchanged_51_scoring: "bada3fb806f69a5cf95fd396d2b5f539d747f1036520b33ea9d46702c32d49ad"
+
 
 queries:
   # --- evidence by reason code (OC 208 §C) -----------------------------------------------
@@ -735,7 +783,7 @@ queries:
     target_doc_ids:
       - oc_208a_annexure_a_reject_taxonomy_curated
     target_section: "OC 208A Annexure A, 1132 (restored)"
-    answer_anchors: ["1132", "Rejection document of merchant accepting dispute"]
+    answer_anchors: ["1132", "Rejection document says merchant accepting dispute"]
     competes_with: "1130, 1131 - the other accepted rows"
 
   - id: h35

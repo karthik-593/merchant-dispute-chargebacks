@@ -131,6 +131,9 @@ reason_codes:
   RC_1085:
     txn_sub_type: [U2]
     description: "Customer was charged more than the transaction amount"
+    # Rulebook prose keeps its gloss; the curated corpus record and every anchor must use the
+    # verbatim wording, because a chunk is scored on what the circular actually says.
+    source_description: "Card holder was charged more than the transaction amount"
     required_evidence_any_of:
       - charge_slip
       - bill_receipt

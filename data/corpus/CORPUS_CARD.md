@@ -12,8 +12,8 @@ Nothing here is chunked or embedded yet. That is later work.
 
 - **Records**: 36 over 33 source circulars
 - **Pages**: 144 (58 recognised by OCR)
-- **Characters**: 252,502
-- **OCR engine**: tesseract (tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe)
+- **Characters**: 254,906
+- **OCR engine**: tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe
 - **Rasterisation**: 300 dpi, via PyMuPDF (no poppler dependency)
 - **Text-layer threshold**: a page yielding under 120 characters is treated as having no text layer and is sent to OCR
 
@@ -50,9 +50,9 @@ Only these three are curated, and only because they are verified against source.
 
 | method | ref (parsed from content) | pages | chars | chars/page | doc_id |
 |---|---|---:|---:|---:|---|
-| `curated` | — | 1 | 5,313 | 5,313 | `oc_208_sec_c_evidence_map_curated` |
-| `curated` | — | 1 | 4,983 | 4,983 | `oc_208a_annexure_a_reject_taxonomy_curated` |
-| `curated` | — | 1 | 1,745 | 1,745 | `oc_184b_rgnb_response_table_curated` |
+| `curated` | — | 1 | 7,016 | 7,016 | `oc_208a_annexure_a_reject_taxonomy_curated` |
+| `curated` | — | 1 | 5,316 | 5,316 | `oc_208_sec_c_evidence_map_curated` |
+| `curated` | — | 1 | 2,113 | 2,113 | `oc_184b_rgnb_response_table_curated` |
 | `mixed` | — | 28 | 38,817 | 1,386 | `osdt31012019` |
 | `mixed` | — | 4 | 4,086 | 1,021 | `upi_settlement_process_256f73e1df` |
 | `ocr` | — | 8 | 16,944 | 2,118 | `upi_oc_no_208_fy_24_25_implementation_of_nrp_prd_process_arbitration_guidelines` |
@@ -119,7 +119,7 @@ Every record carries `source_path` and `source_sha256`, so a chunk traces to an 
 
 ## Known limitations
 
-- OCR quality is unmeasured. No page has been checked against a human transcription, so the character error rate is unknown. The evidence for it being adequate is indirect: the scanned documents average around 1,753 characters per page, which is in the range of the born-digital ones, and no document fell under the 400-character review threshold.
+- OCR quality is unmeasured. No page has been checked against a human transcription, so the character error rate is unknown. The evidence for it being adequate is indirect: the scanned documents average around 1,770 characters per page, which is in the range of the born-digital ones, and no document fell under the 400-character review threshold.
 - Tables are flattened by OCR. The three that retrieval most depends on — OC 208 §C, the OC 184B RGNB table and the OC 208A reject taxonomy — are addressed by the curated records above, but every other table in the corpus is still running text. A chunker that splits mid-table will produce misleading fragments; this needs attention when chunking is designed.
 - OC 208A proves the flattening is not always harmless. Where a collapsed column layout drops a row or shifts a digit, the damage is silent: nothing about `1184` or `Ilagible` looks wrong until it is compared against a verified transcription. Any table promoted to a curated record from here should be reconciled the same way, code by code, rather than spot-checked.
 - Recognition is English-only. Several RBI circulars carry a Hindi header, which is recognised as noise. It sits at the top of page 1 and does not affect the operative English text below it.

@@ -1,7 +1,21 @@
-# reject_taxonomy.yaml — NRP verdict reason codes.
+# reject_taxonomy.yaml — NRP verdict reason codes, split by which way the verdict went.
+#
+# THE CATEGORY BOUNDARY IS LOAD-BEARING. Annexure A's Adj Flag column carries three categories,
+# not one flat list, and conflating them inverts the verifier:
+#
+#   NVB  1126-1131  NRP verdict FOR the beneficiary. The representment SUCCEEDED. 1130 is
+#                   "Beneficiary customer account credited successfully" - a WIN, not a defect.
+#   NVR  1132-1157  NRP verdict AGAINST. This is the invalid-reason / auto-loss catalog, and the
+#                   only band the verifier may treat as a fail.
+#   ACC  1105-1107  arbitration continuation; NVCA/NVCR are the compensation rows.
+#
+# An earlier version of this file scoped itself "1130-1157" and treated every code in it as a
+# fail. That would have made the verifier reject VALID representments on the strength of the two
+# codes that say the representment won. Corrected against the source PDF; the guard test in
+# tests/test_reject_taxonomy.py fails if NVB codes are ever folded back into the fail catalog.
 #
 # Feeds the L0 pre-file validity gate and the L4 verifier's hard gates: a representment that would
-# trip one of these must not be filed. Each entry is transcribed from the source circular and
+# trip an NVR code must not be filed. Each entry is transcribed from the source circular and
 # carries its own `source`.
 #
 # PROVENANCE. OC 208A is an image scan with no text layer, so Annexure A was recovered by OCR
@@ -11,16 +25,20 @@
 # meta.transcription.corrections rather than made silently, and anything still uncertain is marked
 # with `transcription_note` on the entry itself.
 #
-# Scope: the NRP verdict block, codes 1130-1157. The same annexure also lists arbitration
-# continuation codes (1105-1107) and codes 1126-1129, but OCR could not reliably attribute those
-# rows to their block heading, so they are deliberately left out rather than guessed at.
+# Scope: the NVR band, codes 1132-1157, in `nrp_verdict_against_codes`. The NVB band (verdict FOR)
+# is held separately in `nrp_verdict_for_codes` and is NEVER a fail condition. Arbitration
+# continuation codes 1105-1107 are out of scope for both.
 
 meta:
   version: "1.0"
   status: active
   primary_source: "OC 208A Annexure A (New Dispute Flags & Reason Codes)"
   circular: "NPCI/UPI/OC 208A/2025-26, 30 Jun 2025"
-  covers: "NRP verdict reason codes 1130-1157"
+  covers: "NVR (verdict-against) reason codes 1132-1157; NVB (verdict-for) 1126-1131 held apart"
+  category_boundary_source: "OC 208A Annexure A, verified against source PDF
+                             (NVB/NVR/ACC category boundary)"
+  nvr_range: ["1132", "1157"]
+  nvb_range: ["1126", "1131"]
   transcription:
     method: "OCR of the scanned Annexure A table; row alignment recovered across several passes"
     corrections:
@@ -32,28 +50,46 @@ meta:
       - "1105-1107 (arbitration continuation) and 1126-1129: present in the annexure but their
          block heading could not be resolved from the scan"
       - "1128: no row recovered"
-    note: "OC 208A also records that reason code 1102 ('Customer has still not received the
-           service') was removed from Arbitration Continuation."
+  removed_codes:
+    - code: "1102"
+      description: "Customer has still not received the service"
+      previously: "Arbitration Continuation reason code, carried in OC 208 Annexure B p5"
+      removed_by: "OC 208A"
+      source: "OC 208A Annexure A note: 'Removed the reason code 1102 - Customer has still not
+               received the service - under Arbitration Continuation'"
+      status: "absent by intent, not by omission - do not re-add from OC 208"
 
 # ---------------------------------------------------------------------------
-# Codes 1130-1132 record a rejection the panel accepts. Everything from 1133
-# onward describes a defective or invalid submission — those are the ones the
-# verifier exists to catch before anything is filed.
+# NVB — NRP verdict FOR the beneficiary. These record a representment that WON.
+# They are not fail conditions and must never be read as ones.
+#
+# 1126-1129 belong to this band and are NOT listed: OCR could not resolve their
+# rows, and inventing a description for a code the verifier will act on is
+# exactly the failure this file exists to prevent. Their absence is recorded in
+# meta.transcription.not_transcribed.
 # ---------------------------------------------------------------------------
-nrp_verdict_reason_codes:
+nrp_verdict_for_codes:
   - code: "1130"
     description: "Beneficiary customer account credited successfully"
-    source: "OC 208A Annexure A"
+    verdict: "for_beneficiary"
+    source: "OC 208A Annexure A (NVB), verified against source PDF"
 
   - code: "1131"
     description: "Goods/Services fulfilled to customer in good condition and as per the order"
-    source: "OC 208A Annexure A"
+    verdict: "for_beneficiary"
+    source: "OC 208A Annexure A (NVB), verified against source PDF"
 
+# ---------------------------------------------------------------------------
+# NVR — NRP verdict AGAINST. The invalid-reason catalog. Every code below is a
+# fail condition; nothing above is.
+# ---------------------------------------------------------------------------
+nrp_verdict_against_codes:
   - code: "1132"
-    description: "Rejection document of merchant accepting dispute"
-    source: "OC 208A Annexure A"
-    transcription_note: "OCR gave 'Rejection document a merchant accepting dispute'; the
-                         connecting word is uncertain, the sense is not"
+    description: "Rejection document says merchant accepting dispute"
+    source: "OC 208A Annexure A, verified against source PDF"
+    transcription_note: "OCR gave 'Rejection document a merchant accepting dispute' and the
+                         connecting word was left uncertain. Resolved against the source PDF:
+                         the word is 'says'. The earlier reading 'of' was a guess and is gone."
 
   - code: "1133"
     description: "Blurry evidence"

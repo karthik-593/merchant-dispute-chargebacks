@@ -100,6 +100,33 @@ def load_reject_taxonomy() -> dict[str, Any]:
 
 
 @functools.cache
-def nrp_verdict_reason_codes() -> dict[str, dict[str, Any]]:
-    """NRP verdict reason codes by code, as declared by the reject taxonomy."""
-    return {entry["code"]: entry for entry in load_reject_taxonomy()["nrp_verdict_reason_codes"]}
+def nrp_verdict_against_codes() -> dict[str, dict[str, Any]]:
+    """NVR codes 1132-1157: the invalid-reason catalog. Every one of these is a FAIL condition."""
+    return {e["code"]: e for e in load_reject_taxonomy()["nrp_verdict_against_codes"]}
+
+
+@functools.cache
+def nrp_verdict_for_codes() -> dict[str, dict[str, Any]]:
+    """NVB codes 1126-1131: the representment WON.
+
+    Held apart from the fail catalog deliberately. Reading 1130 ("Beneficiary customer account
+    credited successfully") as a rejection reason would make the verifier throw out valid
+    representments on the strength of the code that says they succeeded.
+    """
+    return {e["code"]: e for e in load_reject_taxonomy()["nrp_verdict_for_codes"]}
+
+
+@functools.cache
+def all_nrp_annexure_codes() -> dict[str, dict[str, Any]]:
+    """Both bands together: everything transcribed from Annexure A, 1130-1157.
+
+    For callers reasoning about the SCAN - the OCR reconciliation covers the whole printed block
+    regardless of which way each verdict went. Never use this as a fail catalog.
+    """
+    return {**nrp_verdict_for_codes(), **nrp_verdict_against_codes()}
+
+
+@functools.cache
+def nrp_fail_codes() -> frozenset[str]:
+    """The only codes any downstream component may treat as a fail."""
+    return frozenset(nrp_verdict_against_codes())

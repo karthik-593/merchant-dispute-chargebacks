@@ -128,7 +128,8 @@ def build_oc_208_evidence_map() -> DocumentRecord:
         code = entry.get("code", key)
         types = entry["required_evidence_any_of"]
         lines += [
-            f"Reason code {code} ({', '.join(entry['txn_sub_type'])}) - {entry['description']}",
+            f"Reason code {code} ({', '.join(entry['txn_sub_type'])}) - "
+            f"{entry.get('source_description', entry['description'])}",
             "  Accepted evidence (any one of):",
         ]
         lines += [f"    - {vocabulary[name]} [{name}]" for name in types]
@@ -175,9 +176,14 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
     for row in rgnb["rows"]:
         tat = row["tat"] or "not applicable (the raising side)"
         penalty = f" (penalty {row['penalty']})" if row.get("penalty") else ""
+        # Verbatim source wording wins over the rulebook gloss wherever it has been verified. A
+        # row still on the gloss says so, so a reader of the record can tell which is which
+        # instead of assuming every line is quoted from the circular.
+        verbatim = row.get("source_text")
+        meaning = verbatim or f"{row['meaning']}  [rulebook gloss - source wording not verified]"
         lines += [
             f"Flag {row['flag']} / Code {row['code']} - {row['txn']}",
-            f"  Meaning  : {row['meaning']}",
+            f"  Meaning  : {meaning}",
             f"  Responder: {row['responder']}",
             f"  Response TAT: {tat}{penalty}",
             "",
@@ -208,9 +214,10 @@ def build_oc_208a_reject_taxonomy() -> DocumentRecord:
     lines = [
         "OC 208A Annexure A - NRP verdict reason codes",
         "",
-        "The reason codes an NPCI Review Panel verdict is recorded under. Codes 1130 to 1132",
-        "record a rejection the panel accepts; everything from 1133 onward describes a defective",
-        "or invalid submission - the cases the verifier exists to catch before anything is filed.",
+        "The reason codes an NPCI Review Panel verdict is recorded under, in two bands that must",
+        "not be confused. NVB 1126-1131 record a verdict FOR the beneficiary - the representment",
+        "SUCCEEDED - and are never fail conditions. NVR 1132-1157 record a verdict AGAINST: the",
+        "invalid-reason catalog the verifier exists to catch before anything is filed.",
         "",
         f"Scope: {meta['covers']}. Source: {meta['primary_source']}, {meta['circular']}.",
         "",
@@ -220,11 +227,18 @@ def build_oc_208a_reject_taxonomy() -> DocumentRecord:
         "",
     ]
 
-    for entry in taxonomy["nrp_verdict_reason_codes"]:
+    for entry in taxonomy["nrp_verdict_for_codes"]:
+        code = entry["code"]
+        lines.append(f"Reason code {code} - {' '.join(entry['description'].split())}")
+        lines.append("  Verdict: FOR the beneficiary (NVB) - the representment succeeded.")
+        lines += [f"  Source: {entry['source']}", ""]
+
+    for entry in taxonomy["nrp_verdict_against_codes"]:
         code = entry["code"]
         lines.append(f"Reason code {code} - {' '.join(entry['description'].split())}")
         if entry.get("transcription_note"):
             lines.append(f"  Transcription note: {' '.join(entry['transcription_note'].split())}")
+        lines.append("  Verdict: AGAINST (NVR) - an invalid or defective submission.")
         if code in damaged:
             lines.append("  OCR reconciliation: corrected against the rulebook; see the log.")
         lines += [f"  Source: {entry['source']}", ""]

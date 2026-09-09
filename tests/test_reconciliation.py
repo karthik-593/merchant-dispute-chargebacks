@@ -20,7 +20,7 @@ import re
 
 import pytest
 
-from src.data.rulebook_vocab import load_reject_taxonomy, nrp_verdict_reason_codes
+from src.data.rulebook_vocab import all_nrp_annexure_codes, load_reject_taxonomy
 from src.evaluation.retrieval_metrics import normalise
 from src.retrieval.corpus_ingest import CORPUS_FILE, corpus_dir, read_corpus
 from src.retrieval.curated_records import (
@@ -70,7 +70,7 @@ def test_every_code_is_accounted_for_exactly_once(reconciliation):
     clean = list(reconciliation["clean"])
     assert len(corrected) == len(set(corrected)), "a code is corrected twice"
     assert not set(corrected) & set(clean), "a code cannot be both corrected and clean"
-    assert set(corrected) | set(clean) == set(nrp_verdict_reason_codes())
+    assert set(corrected) | set(clean) == set(all_nrp_annexure_codes())
 
 
 def test_the_log_names_its_authority_and_both_records(reconciliation):
@@ -112,7 +112,7 @@ def test_what_the_log_calls_missing_really_is_missing(reconciliation, scanned_te
     their code and lost their description, 1132 lost both. Checking only "something is missing"
     would pass on a log that got the repair backwards.
     """
-    book = nrp_verdict_reason_codes()
+    book = all_nrp_annexure_codes()
     for correction in reconciliation["corrections"]:
         if "missing" not in correction["damage"]:
             assert "absent" not in correction, f"{correction['code']}: absent on a non-missing row"
@@ -166,7 +166,7 @@ def test_no_corrupted_value_survives_into_the_curated_record(reconciliation, cur
 
 
 def test_the_curated_record_carries_every_code_with_its_verified_description(curated_text):
-    for code, entry in nrp_verdict_reason_codes().items():
+    for code, entry in all_nrp_annexure_codes().items():
         assert f"reason code {code} -" in curated_text, code
         assert normalise(" ".join(entry["description"].split())) in curated_text, code
 
@@ -174,7 +174,7 @@ def test_the_curated_record_carries_every_code_with_its_verified_description(cur
 def test_rows_restored_from_the_rulebook_are_present(curated_text):
     """The four rows the scan lost entirely are the reason this record exists."""
     for code, fragment in [
-        ("1132", "rejection document of merchant accepting dispute"),
+        ("1132", "rejection document says merchant accepting dispute"),
         ("1136", "cbs screenshot uploaded without txn details"),
         ("1148", "others"),
         ("1154", "the refund has failed as per the refund details"),
@@ -189,7 +189,7 @@ def test_rows_restored_from_the_rulebook_are_present(curated_text):
 @needs_corpus
 def test_clean_rows_are_intact_in_both_records(reconciliation, scanned_text, curated_text):
     """A row declared clean must read the same in the scan and in the curated record."""
-    book = nrp_verdict_reason_codes()
+    book = all_nrp_annexure_codes()
     for code in reconciliation["clean"]:
         verified = normalise(" ".join(book[code]["description"].split()))
         assert verified in scanned_text, f"{code}: declared clean but not intact in the scan"
@@ -219,5 +219,6 @@ def test_the_rulebook_is_the_authority_not_this_module():
     """Change the rulebook and the record changes with it; nothing here is hand-keyed."""
     taxonomy = load_reject_taxonomy()
     text = build_oc_208a_reject_taxonomy().text
-    for entry in taxonomy["nrp_verdict_reason_codes"]:
+    entries = taxonomy["nrp_verdict_for_codes"] + taxonomy["nrp_verdict_against_codes"]
+    for entry in entries:
         assert " ".join(entry["description"].split()) in " ".join(text.split())

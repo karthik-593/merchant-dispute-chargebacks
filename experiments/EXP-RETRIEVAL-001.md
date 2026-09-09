@@ -24,6 +24,66 @@ quote them.** The comparison between the two is recorded under "What moved, and 
 uv run python -m src.evaluation.eval_retrieval --alpha-sweep bge-small-en-v1.5
 ```
 
+## Revision 3 (2026-09-09) — source-verification pass, `retrieval-v1.2.1`
+
+All hard-query ground truth was checked against the OC 208, OC 184B and OC 208A **source PDFs**.
+This is the provenance spine for M18: §1 evidence map (OC 208 Table C, all 12 rows), §2/§3
+branches, §5 RGNB (OC 184B), reject codes (OC 208A), fees (OC 208 p1) — all confirmed.
+
+### The one behavioural error found
+
+**The §3 NVB/NVR category boundary.** Annexure A's Adj Flag column carries three categories, not
+one flat list. The catalog was scoped "1130–1157" with every code treated as a fail — but
+**1130 ("Beneficiary customer account credited successfully") and 1131 are NVB: verdict FOR the
+beneficiary, meaning the representment WON.** A verifier reading them as auto-loss would have
+rejected valid representments on the strength of the codes that say they succeeded.
+
+| band | codes | meaning | treatment |
+| --- | --- | --- | --- |
+| NVB | 1126–1131 | verdict FOR — representment succeeded | **never a fail** |
+| NVR | 1132–1157 | verdict AGAINST | the auto-loss catalog |
+| ACC | 1105–1107 | arbitration continuation | out of scope |
+
+Fixed: the two bands are separate structures (`nrp_verdict_for_codes`, `nrp_verdict_against_codes`),
+`nrp_fail_codes()` returns NVR only, and `tests/test_reject_taxonomy.py` fails if NVB is ever
+folded back in. 1126–1129 belong to NVB but are **not** listed — OCR could not resolve their rows,
+and inventing a description for a code the verifier acts on is the failure this file exists to
+prevent.
+
+### The correctness fix carried a retrieval cost
+
+Rendering the verdict band on every row added a line identical across 26 reject codes. The
+reject-taxonomy curated record grew 4,983 → **7,016 chars**, RGNB 1,745 → 2,113, and
+`structure_aware` went 326 → 334 chunks. On the best cell, `structure_aware / dense / bge`,
+**rule@5 fell 0.700 → 0.620** — four queries (h15, h22, h32, q25), two of them reject-taxonomy.
+
+**Attribution, both directions.** One query at n=50 moves a rate by at most 0.020, so a 0.080 drop
+**cannot** be the h34 anchor edit. h34 itself is answerable at rank 2 and appears in neither miss
+list. The movement is the **corpus text change**, not the query change: adding boilerplate to every
+row makes near-duplicate rows *more* similar, which is precisely the signal the near-duplicate
+queries exist to test. The fix is behaviourally necessary and the retrieval cost is real; both are
+recorded rather than netted off. A remedy exists — carry the band as record-level metadata rather
+than a per-row line — and is **not applied**, pending review.
+
+### The B3 ruler defect (unchanged)
+
+`whole_document` and `sentence` still inflate on near-duplicate queries: the entire 9-row RGNB
+table is one 260-token chunk and the whole reject taxonomy one 759-token chunk, so those chunkers
+score a rule-hit by retrieving *the table* without ever isolating the row. `structure_aware` is
+the only chunker where a hit means the row was found. Unfixed, and it qualifies every cross-chunker
+comparison in this document.
+
+### Verbatim-anchor pass, partially complete
+
+Six anchors key on a rulebook gloss or a curated construction rather than source wording: q14, h03,
+h04, h05, h09, h10. Only NA1 and NR1 have verified source strings so far; h04 survives NR1's switch
+because "amount already credited" appears in both wordings. The remaining rows are recorded in
+`meta.pending_source_strings` and were **not** inferred by symmetry — "Accepting P2P chargeback"
+makes "Accepting P2M chargeback" an obvious guess for NA2, and page 3 of the OC 184B scan offers
+nothing to check a guess against.
+
+---
+
 ## What varied, and what did not
 
 M6 varied the chunker with BM25 held constant. M7 varies the retriever and the embedding over the

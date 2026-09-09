@@ -55,6 +55,14 @@ on_breach:
 # the scanned OC 184B PDF. src/retrieval/curated_records.py renders it into a
 # corpus record so retrieval gets clean rows instead of running text.
 # ---------------------------------------------------------------------------
+# `meaning` is a human-readable gloss and stays that way for prose. `source_text` is the VERBATIM
+# wording from the OC 184B annexure, and where it is present the curated corpus record renders it
+# instead - a chunk is scored on what the circular actually says, not on our restatement.
+#
+# Only the rows verified against the source PDF carry `source_text`. The rest are deliberately
+# left without it rather than inferred by symmetry: "Accepting P2P chargeback" makes "Accepting
+# P2M chargeback" an obvious guess for NA2, and an obvious guess is still a guess. Page 3 of the
+# OC 184B scan is the rotated table OCR destroyed, so there is nothing to check a guess against.
 rgnb_responses:
   source: "OC 184B"
   note: "No response within TAT means deemed acceptance and the refund is processed."
@@ -77,6 +85,7 @@ rgnb_responses:
       code: NA1
       txn: "P2P U3"
       meaning: "Beneficiary accepts"
+      source_text: "Accepting P2P chargeback"
       responder: "Beneficiary/Acquiring"
       tat: "3 calendar days"
       penalty: "mandatory"
@@ -91,6 +100,7 @@ rgnb_responses:
       code: NR1
       txn: "P2P U3"
       meaning: "Beneficiary rejects - amount already credited"
+      source_text: "Rejecting P2P chargeback, amount already credited in beneficiary account"
       responder: "Beneficiary/Acquiring"
       tat: "3 calendar days"
       penalty: null

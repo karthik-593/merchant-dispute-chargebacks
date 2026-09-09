@@ -67,12 +67,13 @@ corrections:
     damage: [missing]
     absent: row
     as_scanned: null
-    corrected_to: "Rejection document of merchant accepting dispute"
+    corrected_to: "Rejection document says merchant accepting dispute"
     change: "whole row absent from the scan; restored from the rulebook"
-    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1132"
-    note: "The rulebook records this row as recovered in a different segmentation pass, with a
-           transcription_note that the connecting word is uncertain. It is not in the stored scan
-           at all."
+    source: "OC 208A Annexure A via reject_taxonomy.yaml code 1132, verified against source PDF"
+    note: "Not in the stored scan at all. The rulebook had recovered it in a different
+           segmentation pass but left the connecting word uncertain - OCR gave 'document a
+           merchant'. The source-verification pass resolved it: the word is 'says'. An earlier
+           revision of this log read it as 'of', which was a guess; it is now source-verified."
 
   - code: "1136"
     damage: [missing]
