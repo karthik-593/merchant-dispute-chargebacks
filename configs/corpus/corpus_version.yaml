@@ -31,10 +31,6 @@ history:
              kept, superseded rather than overwritten."
 
   - version: "corpus-v1.2"
-chunker_note: "corpus-v1.2 is also the first corpus scored under the corrected structure_aware
-               merge floor - see the corpus-v1.2b entry. The corpus TEXT did not change; the
-               chunker did, and the two are recorded together because a retrieval number depends
-               on both."
     date: "2026-09-09"
     documents: 36
     change: "Verdict band moved from per-row text to record-level metadata."

@@ -1,6 +1,6 @@
 # Corpus card — NPCI/RBI circulars
 
-**Corpus version: `corpus-v1.2`** — Verdict band moved from per-row text to record-level metadata.
+**Corpus version: `corpus-v1.2`** — structure_aware's minimum-token merge floor now applies to PROSE only. A table row is an atomic unit at any length and is never fused into its neighbour.
 
 A retrieval number is only comparable to another taken over the same corpus, so the corpus carries a version the way the query set does. History and the reason for each bump are in `configs/corpus/corpus_version.yaml`.
 
@@ -17,7 +17,7 @@ Nothing here is chunked or embedded yet. That is later work.
 - **Records**: 36 over 33 source circulars
 - **Pages**: 144 (58 recognised by OCR)
 - **Characters**: 251,401
-- **OCR engine**: tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe
+- **OCR engine**: tesseract (tesseract 5.4.0.20240606 at C:\Program Files\Tesseract-OCR\tesseract.exe)
 - **Rasterisation**: 300 dpi, via PyMuPDF (no poppler dependency)
 - **Text-layer threshold**: a page yielding under 120 characters is treated as having no text layer and is sent to OCR
 

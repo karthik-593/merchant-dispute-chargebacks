@@ -349,3 +349,40 @@ def test_every_source_circular_still_has_a_body_record(corpus):
     """Adding curated records must not leave a circular represented only by a curated table."""
     bodies = {Path(r.source_path).name for r in corpus if r.extraction_method != EXTRACTION_CURATED}
     assert bodies == {p.name for p in source_pdfs()}
+
+
+# --- corpus version record ---------------------------------------------------------------------
+#
+# Added after a bad edit left this file as invalid YAML and nothing noticed: only the card builder
+# reads it, and the card is not built during tests. A provenance record nothing validates is a
+# provenance record that can rot silently.
+
+
+def test_the_corpus_version_record_loads_and_is_well_formed():
+    from src.retrieval.curated_records import load_corpus_version
+
+    record = load_corpus_version()
+    assert record["version"].startswith("corpus-v")
+    assert record["history"], "a version with no history explains nothing"
+    versions = [entry["version"] for entry in record["history"]]
+    assert len(versions) == len(set(versions))
+    assert record["version"] in versions, "the current version must appear in its own history"
+
+
+def test_every_corpus_version_entry_says_what_changed():
+    from src.retrieval.curated_records import load_corpus_version
+
+    for entry in load_corpus_version()["history"]:
+        assert entry["date"], entry["version"]
+        assert entry["change"].strip(), entry["version"]
+        assert entry["documents"] >= 1, entry["version"]
+
+
+@needs_corpus
+def test_the_corpus_version_matches_the_documents_on_disk(corpus):
+    """The version claims a document count. If they disagree, one of them is lying."""
+    from src.retrieval.curated_records import load_corpus_version
+
+    record = load_corpus_version()
+    current = next(e for e in record["history"] if e["version"] == record["version"])
+    assert current["documents"] == len(corpus)
