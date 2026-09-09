@@ -129,6 +129,45 @@ from one target to four by containment and stopped being RGNB-specific. Moving a
 source wording is correct and made two queries harder, which is the point of a ruler rather than a
 score.
 
+### Stage A (corpus-v1.4): the metadata-in-row-text defect, third instance and closed
+
+The Stage 3 diagnosis found a defect I introduced in Stage 2. A corpus-wide sweep of row chunks
+turned up **14 contaminated rows** across all three curated records:
+
+| record | contaminated rows | what leaked in |
+| --- | ---: | --- |
+| OC 208 §C evidence map | 12 | an identical per-row `Source: OC 208 §C` line |
+| OC 208A reject taxonomy | 1 | the record's trailing `Source:` line, merged into 1157 |
+| OC 184B RGNB | 1 | 87 tokens of transcription note + trailing prose + Source, merged into ND2 |
+
+**One defect, three appearances.** Stage 1 moved the verdict band out of row text; Stage 1b fixed
+the fusion that caused; Stage 2's transcription note then went straight back in. The metadata was
+correct every time — that is the point. **Trailing record-level text is the specific trap**,
+because it merges into the last row. Substantive prose now sits *before* the rows; provenance
+moved to `source_section`, where the chunk already carried it. The P2m→P2M rule is not deleted,
+only re-rendered.
+
+**Guarded permanently.** `tests/test_chunking.py` now fails if any row chunk contains
+`Transcription rule`, `Source:`, `Verdict:`, `reconciliation`, `normalised` or `OCR-corrected`,
+and a second test fails if one row chunk exceeds four times the median — which is what trailing
+text merging always looks like. That closes all three instances at once. **0 of 50 row chunks are
+contaminated.**
+
+### h01: the corrected verdict is worse, and it inverts the reading
+
+ND2's chunk fell 113 → **27 tokens**. h01's ranks went from a contaminated 126/157/129 to a clean
+**>200 under all three embeddings.**
+
+The contamination had been *helping*. The 87-token note carried the prose *"otherwise the
+adjustment window will be closed on deemed acceptance"* — the semantic bridge to a question asking
+when silence counts as agreement. The clean row says *"Deemed acceptance of P2M Generic good faith
+chargeback"* and nothing about silence or timeouts. **h01 is a genuine CHUNK case and a stronger
+one than the contaminated measurement suggested**, not the marginal one it appeared to be.
+
+**Tally, corrected:** 3 FOUND (h10, h34, h36) · 1 DEPTH (h02) · 5 EMBEDDING (h03, h04, h09, h32,
+h35) · 2 CHUNK (h01, h05). h10 moved to FOUND — e5 now ranks it 1 — because the trigger prose it
+anchors moved into the header and out of a row's shadow.
+
 ### The B3 ruler defect (unchanged)
 
 `whole_document` and `sentence` still inflate on near-duplicate queries: the entire 9-row RGNB

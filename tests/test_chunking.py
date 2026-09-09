@@ -289,3 +289,65 @@ def test_row_and_prose_boundaries_are_kept_apart():
     assert chunker._is_row_boundary("Flag BGND / Code ND2 - P2M U2")
     assert not chunker._is_row_boundary("1. Total chargebacks per customer")
     assert chunker._is_boundary("1. Total chargebacks per customer")
+
+
+# --- metadata must never be rendered into row text ---------------------------------------------
+#
+# The regression guard for one defect that has now appeared three times:
+#
+#   Stage 1   the NVB/NVR verdict band was rendered on every reject row - identical across 26
+#             codes, so it diluted the only thing separating them.
+#   Stage 1b  stripping that boilerplate dropped rows under the merge floor and fused them.
+#   Stage 3   the ND2 transcription note, added while fixing the first two, merged into ND2's
+#             chunk. h01's diagnosis was measuring an 87-token provenance note, not the row.
+#
+# Every time, the metadata was CORRECT. That is the point: correctness at one layer does not make
+# text safe to retrieve at another. A row's retrievable text is the rule and nothing else;
+# provenance rides on the chunk as doc_id, source_section, source_path and page.
+
+METADATA_IN_ROW_TEXT = (
+    "Transcription rule",
+    "Transcription note",
+    "Source:",
+    "Verdict:",
+    "reconciliation",
+    "normalised",
+    "OCR-corrected",
+)
+
+
+@needs_corpus
+def test_no_row_chunk_carries_metadata_boilerplate(corpus):
+    """A table row's text is the code and its rule. Anything else is a retrieval hazard."""
+    from src.retrieval.chunkers import _ROW_BOUNDARIES
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    offenders = []
+    for chunk in chunks:
+        head = chunk.text.splitlines()[0]
+        if not any(pattern.match(head) for pattern in _ROW_BOUNDARIES):
+            continue
+        for marker in METADATA_IN_ROW_TEXT:
+            if marker.lower() in chunk.text.lower():
+                offenders.append((chunk.doc_id, head[:44], marker, chunk.n_tokens))
+    assert not offenders, (
+        "metadata rendered into row text - the defect that voided h01's diagnosis:\n  "
+        + "\n  ".join(f"{d}: {h!r} contains {m!r} ({n} tok)" for d, h, m, n in offenders)
+    )
+
+
+@needs_corpus
+def test_trailing_record_text_does_not_land_in_the_last_row(corpus):
+    """Text after the final row merges into it. All three curated records were losing this way."""
+    import re
+
+    chunks = chunk_corpus(corpus, StructureAwareChunker())
+    for doc_id, pattern in CURATED_TABLES.items():
+        rows = [c for c in chunks if c.doc_id == doc_id and re.findall(pattern, c.text)]
+        assert rows, doc_id
+        largest = max(rows, key=lambda c: c.n_tokens)
+        median = sorted(c.n_tokens for c in rows)[len(rows) // 2]
+        assert largest.n_tokens <= median * 4, (
+            f"{doc_id}: one row chunk is {largest.n_tokens} tokens against a median of {median} - "
+            f"trailing record text has almost certainly merged into it"
+        )

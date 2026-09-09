@@ -143,9 +143,12 @@ def build_oc_208_evidence_map() -> DocumentRecord:
             "  Accepted evidence (any one of):",
         ]
         lines += [f"    - {vocabulary[name]} [{name}]" for name in types]
+        # A per-row `Source:` line is identical on all twelve rows: uniform boilerplate inside the
+        # unit a question is scored against. The source is stated once in the header and carried on
+        # the record's source_section. The `Note` stays - it is a row-specific RULE, not metadata.
         if entry.get("notes"):
             lines.append(f"  Note: {' '.join(entry['notes'].split())}")
-        lines += [f"  Source: {entry['source']}", ""]
+        lines.append("")
 
     merchant_rule = merchant_type_rule()
     lines += ["Merchant-type rule", ""]
@@ -182,6 +185,13 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
         "The remitter good-faith negative chargeback path, raised",
         f"{rgnb['source_trigger']}. Front-end only, no NPCI whitelisting.",
         "",
+        # Substantive prose, so it stays in the record - but BEFORE the rows. Trailing text merges
+        # into the last row's chunk, which is how ND2 ended up carrying 87 tokens of transcription
+        # note and how h01's diagnosis got measured on metadata instead of on the row.
+        "Beneficiary bank has to accept or represent RGNB within the TAT, "
+        f"{rgnb['source_note']}.",
+        f"Source: {rgnb['source']}.",
+        "",
     ]
     for row in rgnb["rows"]:
         tat = row["tat"] or "not applicable (the raising side)"
@@ -200,21 +210,19 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
             f"  Response TAT: {tat}{penalty}",
             "",
         ]
-    lines.append(
-        "Beneficiary bank has to accept or represent RGNB within the TAT, "
-        f"{rgnb['source_note']}."
-    )
-    for rule in rgnb.get("transcription_rules", []):
-        lines.append(
-            f"Transcription rule: {rule['rule']} ({', '.join(rule['applies_to'])}) - "
-            f"{' '.join(rule['reason'].split())}"
-        )
-    lines.append(f"Source: {rgnb['source']}")
+
 
     return _wrap(
         doc_id=OC_184B_DOC_ID,
         source=_find_source(OC_184B_FILENAME_PREFIX),
-        section="RGNB response table",
+        section=(
+            "RGNB response table"
+            + "".join(
+                f"; transcription: {rule['rule']} ({', '.join(rule['applies_to'])}), "
+                "logged in caps.yaml rgnb_responses.transcription_rules"
+                for rule in load_caps()["rgnb_responses"].get("transcription_rules", [])
+            )
+        ),
         title="OC 184B - RGNB reason codes, responder and response TAT (curated table)",
         body="\n".join(lines),
     )
@@ -270,8 +278,6 @@ def build_oc_208a_reject_taxonomy() -> DocumentRecord:
     for entry in taxonomy["nrp_verdict_for_codes"] + taxonomy["nrp_verdict_against_codes"]:
         lines.append(f"Reason code {entry['code']} - {' '.join(entry['description'].split())}")
         lines.append("")
-
-    lines.append(f"Source: {meta['primary_source']}")
 
     return _wrap(
         doc_id=OC_208A_DOC_ID,

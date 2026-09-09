@@ -8,7 +8,7 @@
 # change to how a curated record is rendered. Re-running OCR that reproduces the same bytes does
 # not bump it.
 
-version: "corpus-v1.3"
+version: "corpus-v1.4"
 chunker_note: "corpus-v1.2 is also the first corpus scored under the corrected structure_aware
                merge floor - see the corpus-v1.2b entry. The corpus TEXT did not change; the
                chunker did, and the two are recorded together because a retrieval number depends
@@ -106,3 +106,36 @@ history:
                          Logged, not applied silently."
     still_glossed: "ND1/ND2 penalty cells. No query anchors them and they were not inferred from
                     NA1's verbatim 'Yes (Mandatory)'."
+
+  - version: "corpus-v1.4"
+    date: "2026-09-09"
+    documents: 36
+    change: "Metadata swept out of ROW text in all three curated records. 14 contaminated row
+             chunks found and cleared: 12 evidence-map rows each carrying an identical per-row
+             `Source:` line, the reject taxonomy's last row (1157) carrying the record's trailing
+             Source line, and the RGNB table's last row (ND2) carrying 87 tokens of transcription
+             note plus the trailing prose and Source."
+    why: "Third instance of one defect. Stage 1 moved the NVB/NVR verdict band out of per-row
+          text; Stage 1b fixed the fusion that caused; and then Stage 2's transcription note went
+          straight back into row text and merged into ND2's chunk, voiding h01's Stage 3
+          diagnosis - it was measuring an 87-token provenance note, not the row.
+
+          The pattern each time: metadata that is CORRECT, rendered where it is retrieved.
+          Trailing record-level text is the specific trap, because it merges into the last row.
+          Substantive prose stays in the record but now sits BEFORE the rows; provenance moves to
+          source_section, where the chunk already carries it as metadata.
+
+          The transcription rule itself is not deleted - P2m -> P2M is still recorded in
+          caps.yaml and now also on the RGNB record's source_section. Only its rendering moved.
+
+          Guarded permanently: tests/test_chunking.py fails if any row chunk contains
+          'Transcription rule', 'Source:', 'Verdict:', 'reconciliation', 'normalised' or
+          'OCR-corrected', and a second test fails if one row chunk grows to four times the
+          median, which is what trailing text merging always looks like."
+    result: "0 of 50 row chunks contaminated. ND2 back to 27 tokens from 113. h01's corrected
+             ranks are >200 under all three embeddings - WORSE than the contaminated 126/157/129,
+             because the note it was carrying included the prose 'otherwise the adjustment window
+             will be closed on deemed acceptance', which is the semantic bridge to a question
+             about silence meaning agreement. h01 is a genuine CHUNK case and a stronger one than
+             the contaminated measurement suggested. h10 moved the other way and is now FOUND
+             (e5 rank 1), so the Stage 3 tally becomes 3 FOUND / 1 DEPTH / 5 EMBEDDING / 2 CHUNK."
