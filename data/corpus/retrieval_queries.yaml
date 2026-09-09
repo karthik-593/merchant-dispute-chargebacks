@@ -20,7 +20,7 @@
 # every query is answerable by at least one chunk under at least one chunking strategy.
 
 meta:
-  version: "retrieval-v1.2.1"
+  version: "retrieval-v1.2.2"
   frozen: true
   query_count: 52
   discriminator_count: 50
@@ -33,32 +33,44 @@ meta:
   # query means, not how the YAML is wrapped: re-folding a question or moving a comment leaves
   # them untouched, while any change to an id, question, target, anchor or topic moves them.
   # `tests/test_query_freeze.py` recomputes all three and fails if any drifts.
-  queries_sha256: "3a802957f6c0a768aed44fb2e97af785a1e1d4a9eeebc162d1319ecc2ac6bade"
-  discriminators_sha256: "f9cfa8527b5412b8c4f8d3cc1044bea871df52fe36a874a5b95b4479664678b5"
+  queries_sha256: "7b457de3cfd569025bbec65f0a48b964c19e679fef00aa6664f179f845b55882"
+  discriminators_sha256: "4c10c8a0452e26dade5595b7cc01d029c71f81e343f0494be2b19eb2363f5f6d"
   unamended_sha256: "1d1a30bbebb5d19c3cd0fffad680a96d90b3c1482bf997915f14c0f8ec98c212"
   unamended_note: "Hash over the 25 queries NOT touched in v1.1, in file order. It is identical
                    to the same 25 under retrieval-v1, which is what 'the rest of the set did not
                    move' means here and is asserted rather than claimed."
 
-  # Continuity across the v1.2 schema change, and the reason it needs its own hash.
+  # Continuity, and why it is scoped the way it is.
   #
-  # v1.2 adds `class` and `role` to EVERY query, which moves the full fingerprint of all 26
-  # carried-over queries while changing what none of them scores. So the continuity claim is made
-  # over the fields that decide scoring - id, question, topic, target_doc_ids, target_section,
-  # answer_anchors - and nothing else. That hash is identical to v1.1's full hash of the same 26,
-  # because under v1.1 those WERE all the fields. Asserted in test_query_freeze.py.
-  carried_over_scoring_sha256: "257b38f5ba184b13ef4f8f64b69177e12a9314c588cfd146f5d0c5e3297a4151"
+  # v1.2 added `class` and `role` to EVERY query, which moves the full fingerprint of all 26
+  # carried-over queries while changing what none of them scores. So continuity is claimed over
+  # the fields that decide scoring - id, question, topic, target_doc_ids, target_section,
+  # answer_anchors - and nothing else.
+  #
+  # The claim is over queries NEVER amended, not over "the carried-over 26": v1.1 amended q25 and
+  # v1.2.2 amended q14, both carried-over. A hash asserting all 26 are untouched would now be
+  # false, and quietly restating it to match would be the drift these hashes exist to catch. So
+  # the invariant names the 24 that have never been touched by any changelog entry, and that hash
+  # is identical to the same 24 under retrieval-v1.1. Asserted in test_query_freeze.py.
+  never_amended_scoring_sha256: "1b736a4a012467a1119e0d0eb269e3579f54df33e99ea4d0ce8663b3d3c0f3ed"
+  never_amended_count: 24
+  never_amended_note: "Carried-over queries untouched by every changelog entry so far. q25 (v1.1)
+                       and q14 (v1.2.2) are the two exceptions and are excluded by name."
 
-  # RGNB rows whose verbatim source wording is still needed. The rulebook gloss is in use and the
-  # curated record marks each one "[rulebook gloss - source wording not verified]". They are NOT
-  # inferred by symmetry: "Accepting P2P chargeback" makes "Accepting P2M chargeback" an obvious
-  # guess for NA2, and page 3 of the OC 184B scan - the rotated table OCR destroyed - offers
-  # nothing to check a guess against.
-  pending_source_strings:
-    - "NB1, NB2, NA2, NR2, NR3, ND1, ND2 (OC 184B RGNB rows)"
-    - "the RGNB closing note anchored by h09"
-    - "the CD1/CD2 cap linkage anchored by h10"
-    - "penalty field rendering anchored by h03"
+  # Historical: the full-26 hash as it stood from v1.2 until q14 moved in v1.2.2. Kept because the
+  # v1.2 changelog entry cites it, and superseded rather than edited.
+  carried_over_scoring_sha256_through_v121: "257b38f5ba184b13ef4f8f64b69177e12a9314c588cfd146f5d0c5e3297a4151"
+
+  # `pending_source_strings` lived here until v1.2.2 and is gone rather than left as an empty
+  # list: there is nothing outstanding to track. All nine RGNB row descriptions, the Annexure 1
+  # trigger and deemed-acceptance prose, and the NA1/NA2 penalty cells were read from the OC 184B
+  # page 3 table image - the rotated table OCR destroyed - and are now quoted verbatim.
+  #
+  # One field is still the rulebook value rather than a quoted cell: the penalty column for
+  # ND1/ND2. No query anchors it, and it was NOT inferred from NA1's "Yes (Mandatory)".
+  source_verification: "OC 184B RGNB: all 9 row descriptions verbatim, plus the Annexure 1 prose
+                        and the NA1/NA2 penalty cells. OC 208A reject codes: verified. OC 208
+                        Table C: verified. Remaining gloss: ND1/ND2 penalty cells, unanchored."
 
   changelog:
     - version: "retrieval-v1.1"
@@ -216,6 +228,52 @@ meta:
         h34_after: "b3d8f29073dfbb6fc31173c19cca89285f5ccaed8fd1e715a9f08b7c12857e38"
         unchanged_51_scoring: "bada3fb806f69a5cf95fd396d2b5f539d747f1036520b33ea9d46702c32d49ad"
 
+
+    - version: "retrieval-v1.2.2"
+      date: "2026-09-09"
+      supersedes: "retrieval-v1.2.1"
+      queries_added: 0
+      queries_amended: ["q14", "h03", "h09", "h10"]
+      queries_unchanged: 48
+      change: "Four anchors moved off a rulebook gloss or a curated construction and onto the
+               verbatim OC 184B source wording. q14: 'refund already processed' -> 'Refund already
+               processed' (case only - matching is case-insensitive, so no metric can move from
+               it). h03: penalty gloss -> 'Yes/No (As chosen by Bank)', the source penalty cell.
+               h09 -> 'otherwise the adjustment window will be closed on deemed acceptance'.
+               h10 -> 'when URCS declines the normal chargeback with CD1 & CD2 reason code'.
+               h04 and h05 needed no change: their fragments survive verbatim inside the longer
+               source strings."
+      why: "Fix 5 of the source-verification pass, completed. An anchor keyed on our restatement
+            scores a string the circular does not contain. The corpus is the ruler, and the ruler
+            now reads what the source reads."
+      h09_targets: "h09 went from one target to four, by containment. The Annexure 1 sentence it
+                    now anchors on also appears in the OC 206 generic good-faith circulars, so
+                    h09 stopped being RGNB-specific the moment it moved off the gloss. Not
+                    trimmed back: containment decides targets, and hand-excluding a document that
+                    demonstrably answers is the q19/q21/q22 error inverted. h09 also carries
+                    anchor_type: paraphrase - it is prose, not a table cell."
+      transcription_rule: "ND2's source cell renders the transaction type as 'P2m'. Normalised to
+                           'P2M' and logged in caps.yaml under rgnb_responses.transcription_rules.
+                           Every other row in that column reads P2M and P2M is the sub-type
+                           identifier used throughout the rulebook, so this is a scan rendering
+                           artefact rather than a distinct value. Logged, not silent."
+      corpus: "Paired with corpus-v1.3: the RGNB curated record now renders verbatim descriptions
+               for all nine rows, the verbatim NA1/NA2 penalty cells, and the Annexure 1 trigger
+               and deemed-acceptance prose."
+      metric_effect: "Measured in the re-run and annotated by cause, not asserted here."
+      hashes:
+        all_before: "3a802957f6c0a768aed44fb2e97af785a1e1d4a9eeebc162d1319ecc2ac6bade"
+        all_after: "7b457de3cfd569025bbec65f0a48b964c19e679fef00aa6664f179f845b55882"
+        discriminators_after: "4c10c8a0452e26dade5595b7cc01d029c71f81e343f0494be2b19eb2363f5f6d"
+        unchanged_48_scoring: "16b3c1e0b33d9d42f07cacf0a97451f1cd37b39a1725a64b1b120990ef8fedb5"
+        q14_before: "e996c26860aa35b9251a6c912028e3408423444a8c1887eb7fdfbf5d5df67662"
+        q14_after: "8aad171c99bbc372e8a72a1a3e73b18cd0a241e330ad7d136fb427919fe8ca47"
+        h03_before: "70f66695b2c6993a9f3be4678dad57632742810a55e197941239b99887c49e58"
+        h03_after: "ae9f36106b71242b0e71a36f394b7d06513739d24a3472bd935a3a7bc21c4b5c"
+        h09_before: "4faeda41f741a25d4ef2b8ee36957d4ed1b9210aaca1fd46faf3af6f3880ca9d"
+        h09_after: "0b04c38d0913ee0f3c1caa293fc3d8b89bd23b88e362830772ac2869b70e47be"
+        h10_before: "7ceff806dd4ead821b0e4b097cc4c77f10528b71932b2e88e153e40f682fb1af"
+        h10_after: "3f5bf94c741915ff79da900c82b25f9839a61429f595b8ba6a587835f37eb11c"
 
 queries:
   # --- evidence by reason code (OC 208 §C) -----------------------------------------------
@@ -382,7 +440,7 @@ queries:
       - oc_184b_rgnb_response_table_curated
       - upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul
     target_section: "OC 184B, row NR3"
-    answer_anchors: ["NR3", "refund already processed"]
+    answer_anchors: ["NR3", "Refund already processed"]
 
   # --- caps (OC 184) ---------------------------------------------------------------------
   - id: q15
@@ -554,7 +612,7 @@ queries:
     target_doc_ids:
       - oc_184b_rgnb_response_table_curated
     target_section: "OC 184B, row NA2"
-    answer_anchors: ["NA2", "penalty bank's choice"]
+    answer_anchors: ["NA2", "Yes/No (As chosen by Bank)"]
     competes_with: "NA1 (penalty mandatory)"
 
   - id: h04
@@ -588,9 +646,19 @@ queries:
     class: paraphrase
     role: discriminator
     target_doc_ids:
+      # Four, by containment. The verbatim Annexure 1 sentence this now anchors on also appears in
+      # the OC 206 generic good-faith circulars, so h09 stopped being RGNB-specific the moment it
+      # moved off the rulebook gloss. Not trimmed back: containment decides targets, and
+      # hand-excluding a document that demonstrably answers is the q19/q21/q22 error inverted.
       - oc_184b_rgnb_response_table_curated
-    target_section: "OC 184B, closing rule"
-    answer_anchors: ["No response within TAT means deemed acceptance"]
+      - upi_oc_no_184_b_fy_2025_26_addendum_to_oc_184_modification_in_upi_chargeback_rul
+      - upi_oc_no_206_a_fy_2024_25_addendum_to_oc_206_implementation_of_generic_good_fai
+      - upi_oc_no_206_fy_24_25_implementation_of_generic_good_faith_debit_credit_adjustm
+    target_section: "OC 184B Annexure 1, deemed-acceptance prose"
+    # Prose, not a table cell: the mechanism stated in Annexure 1, not a row in the reason-code
+    # table, so it must not be read as a verbatim-row hit.
+    anchor_type: paraphrase
+    answer_anchors: ["otherwise the adjustment window will be closed on deemed acceptance"]
     competes_with: "the per-row TAT cells"
 
   - id: h10
@@ -602,7 +670,7 @@ queries:
     target_doc_ids:
       - oc_184b_rgnb_response_table_curated
     target_section: "OC 184B, preamble"
-    answer_anchors: ["CD1 or CD2 chargeback cap"]
+    answer_anchors: ["when URCS declines the normal chargeback with CD1 & CD2 reason code"]
     competes_with: "OC 184 CD1/CD2 rows"
 
   - id: h12

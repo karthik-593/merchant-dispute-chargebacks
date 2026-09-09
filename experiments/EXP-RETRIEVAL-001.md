@@ -94,6 +94,41 @@ table-vs-row artifact and the `RC_1064` tokenizer bug. But so is text that is *t
 chunker's floor. Not fixed here: the remedy is a chunker parameter (`STRUCTURE_MIN_TOKENS`), which
 would move every M6 number, and that is a separate decision.
 
+### Stage 2 (retrieval-v1.2.2 / corpus-v1.3): the verbatim-anchor pass, completed
+
+All nine RGNB row descriptions, the Annexure 1 trigger and deemed-acceptance prose, and the
+NA1/NA2 penalty cells were read from the OC 184B page 3 table image — the rotated table OCR
+destroyed — and now sit in the curated record verbatim. `caps.yaml` keeps the gloss as `meaning`;
+`source_text` carries the quoted cell.
+
+Four anchors moved off a gloss: **q14** (case only — matching is case-insensitive, so no metric
+can move from it), **h03** → `Yes/No (As chosen by Bank)`, **h09** → `otherwise the adjustment
+window will be closed on deemed acceptance`, **h10** → `when URCS declines the normal chargeback
+with CD1 & CD2 reason code`. h04 and h05 needed no change — their fragments survive verbatim
+inside the longer source strings. 48 queries hash identically.
+
+**A transcription rule, logged not applied silently.** ND2's source cell renders the transaction
+type as `P2m`. Normalised to `P2M` and recorded in `caps.yaml` under
+`rgnb_responses.transcription_rules`: every other row in that column reads P2M, and P2M is the
+sub-type identifier used throughout the rulebook, so this is a scan rendering artefact rather than
+a distinct value.
+
+**One field is still a gloss and is named as such:** the ND1/ND2 penalty cells. No query anchors
+them, and they were **not** inferred from NA1's verbatim `Yes (Mandatory)`.
+
+**Result: 14 of 21 cells moved, all by one or two queries (0.02–0.04 at n=50).** The diagnosis
+cell — `structure_aware / dense / bge` — held at rule@5 **0.640 with an identical miss set**, so
+the anchor work changed nothing there. Cause is split and neither half is large: the RGNB record's
+text changed (different words, different embeddings) and four anchors changed. Both are inputs,
+not retrieval improvements.
+
+**Three of the four amended queries still miss**, and the reason is worth carrying into Stage 3:
+h03 and h09 are unfound at any depth, h10 sits at rank 33. h09 in particular got *harder* — its
+verbatim Annexure 1 sentence also appears in the OC 206 generic good-faith circulars, so it went
+from one target to four by containment and stopped being RGNB-specific. Moving an anchor onto
+source wording is correct and made two queries harder, which is the point of a ruler rather than a
+score.
+
 ### The B3 ruler defect (unchanged)
 
 `whole_document` and `sentence` still inflate on near-duplicate queries: the entire 9-row RGNB

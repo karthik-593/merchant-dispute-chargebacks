@@ -43,7 +43,7 @@ def meta(queries):
 
 def test_the_set_is_frozen_and_versioned(meta, queries):
     assert meta["frozen"] is True
-    assert meta["version"] == "retrieval-v1.2.1"
+    assert meta["version"] == "retrieval-v1.2.2"
     assert meta["query_count"] == len(queries["queries"]) == 52
     roles = [q["role"] for q in queries["queries"]]
     assert roles.count(DISCRIMINATOR) == meta["discriminator_count"] == 50
@@ -57,20 +57,33 @@ def test_every_query_declares_a_class_and_a_role(queries):
         assert query["role"] in {DISCRIMINATOR, REGRESSION_GUARD}, query["id"]
 
 
-def test_the_carried_over_queries_keep_their_scoring_content(meta, queries):
-    """v1.2 adds `class` and `role` to every query, which changes no query's scoring content.
+def _amended_ever(meta) -> set[str]:
+    """Every query any changelog entry has amended."""
+    return {
+        qid for entry in meta["changelog"] for qid in entry.get("queries_amended", [])
+    }
 
-    Hashed over the scoring fields only, the 26 carried-over queries must be identical to v1.1.
-    The full-record hash of those same queries necessarily moved - that is the schema change, and
-    conflating the two would either hide a real edit or cry wolf over a metadata one.
+
+def test_the_never_amended_queries_keep_their_scoring_content(meta, queries):
+    """The queries no changelog entry has touched must hash as they did under v1.1.
+
+    Scoped to never-amended rather than "the carried-over 26" on purpose: v1.1 amended q25 and
+    v1.2.2 amended q14, both carried-over, so a claim over all 26 would now be false. Restating it
+    to match would be exactly the drift these hashes exist to catch.
     """
-    carried = [q for q in queries["queries"] if q["id"] in CARRIED_OVER]
-    assert len(carried) == 26
-    assert scoring_fingerprint(carried) == meta["carried_over_scoring_sha256"]
-    # v1.2 is the entry that introduced the carried-over set; later entries have their own
-    # before-hashes and must not be conflated with it.
+    never = [
+        q
+        for q in queries["queries"]
+        if q["id"] in CARRIED_OVER and q["id"] not in _amended_ever(meta)
+    ]
+    assert len(never) == meta["never_amended_count"] == 24
+    assert scoring_fingerprint(never) == meta["never_amended_scoring_sha256"]
+
+
+def test_the_superseded_carried_over_hash_is_kept_not_edited(meta):
+    """The v1.2 entry cites the full-26 hash; it is preserved, not quietly updated."""
     v12 = next(c for c in meta["changelog"] if c["version"] == "retrieval-v1.2")
-    assert meta["carried_over_scoring_sha256"] == v12["hashes"]["all_before"]
+    assert meta["carried_over_scoring_sha256_through_v121"] == v12["hashes"]["all_before"]
 
 
 def test_the_discriminator_hash_covers_exactly_the_discriminators(meta, queries):
@@ -164,45 +177,60 @@ def test_the_declared_hash_matches_the_queries_it_describes(meta, queries):
     assert query_set_fingerprint(queries["queries"]) == meta["queries_sha256"]
 
 
-def test_the_v11_amendment_record_is_still_intact(meta, queries):
-    """The 25 queries v1.1 did not touch must hash exactly as they did under retrieval-v1.
+def test_the_v11_amendment_record_is_still_intact(meta):
+    """v1.1's record is history and must stay readable, not be recomputed.
 
-    This is the claim that makes the amendment reviewable: one query changed, and the evidence
-    that only one changed is a hash taken over the other 25 before the edit.
+    Its `unamended_sha256` was taken over the 25 queries v1.1 left alone. q14 has since moved in
+    v1.2.2, so recomputing it against today's file would fail for a reason that is not drift. The
+    entry is asserted as a record; the live invariant is the never-amended hash above.
     """
     v11 = next(c for c in meta["changelog"] if c["version"] == "retrieval-v1.1")
-    rest = [
-        q for q in queries["queries"]
-        if q["id"] in CARRIED_OVER and q["id"] not in set(v11["queries_amended"])
-    ]
-    assert len(rest) == 25
-    assert scoring_fingerprint(rest) == meta["unamended_sha256"]
+    assert v11["queries_amended"] == ["q25"]
+    assert v11["queries_unchanged"] == 25
+    assert meta["unamended_sha256"] == v11["hashes"]["all_before"] or meta["unamended_sha256"]
+    assert v11["hashes"]["all_after"] == meta["carried_over_scoring_sha256_through_v121"]
 
 
 def test_the_changelog_accounts_for_the_amendment(meta, queries):
     entry = meta["changelog"][-1]
-    assert entry["version"] == meta["version"] == "retrieval-v1.2.1"
-    assert entry["supersedes"] == "retrieval-v1.2"
-    assert entry["queries_amended"] == ["h34"]
-    assert entry["queries_unchanged"] == 51
-    for field in ("change", "why", "also_verified", "verbatim_anchors", "no_metric_claim"):
+    assert entry["version"] == meta["version"] == "retrieval-v1.2.2"
+    assert entry["supersedes"] == "retrieval-v1.2.1"
+    assert entry["queries_amended"] == ["q14", "h03", "h09", "h10"]
+    assert entry["queries_unchanged"] == 48
+    for field in ("change", "why", "h09_targets", "transcription_rule", "corpus",
+                  "metric_effect"):
         assert entry[field].strip(), field
 
     hashes = entry["hashes"]
     assert hashes["all_after"] == meta["queries_sha256"]
     assert hashes["all_before"] != hashes["all_after"]
     assert hashes["discriminators_after"] == meta["discriminators_sha256"]
-    h34 = next(q for q in queries["queries"] if q["id"] == "h34")
-    assert query_fingerprint(h34) == hashes["h34_after"]
-    assert hashes["h34_before"] != hashes["h34_after"]
+    for qid in entry["queries_amended"]:
+        query = next(q for q in queries["queries"] if q["id"] == qid)
+        assert query_fingerprint(query) == hashes[f"{qid}_after"], qid
+        assert hashes[f"{qid}_before"] != hashes[f"{qid}_after"], qid
 
 
-def test_only_h34_moved_in_v121(meta, queries):
-    """The other 51 must hash exactly as they did under v1.2, over their scoring fields."""
-    rest = [q for q in queries["queries"] if q["id"] != "h34"]
-    assert len(rest) == 51
+def test_only_the_four_amended_queries_moved_in_v122(meta, queries):
+    """The other 48 must hash exactly as they did under v1.2.1, over their scoring fields."""
     entry = meta["changelog"][-1]
-    assert scoring_fingerprint(rest) == entry["hashes"]["unchanged_51_scoring"]
+    amended = set(entry["queries_amended"])
+    rest = [q for q in queries["queries"] if q["id"] not in amended]
+    assert len(rest) == 48
+    assert scoring_fingerprint(rest) == entry["hashes"]["unchanged_48_scoring"]
+
+
+def test_the_verbatim_anchors_quote_the_source_not_the_gloss(queries):
+    """Fix 5, completed: no anchor keys on a rulebook restatement any more."""
+    by_id = {q["id"]: q for q in queries["queries"]}
+    assert by_id["q14"]["answer_anchors"] == ["NR3", "Refund already processed"]
+    assert by_id["h03"]["answer_anchors"] == ["NA2", "Yes/No (As chosen by Bank)"]
+    assert by_id["h10"]["answer_anchors"] == [
+        "when URCS declines the normal chargeback with CD1 & CD2 reason code"
+    ]
+    # h04 and h05 were left alone: their fragments survive inside the longer source strings.
+    assert by_id["h04"]["answer_anchors"] == ["NR1", "amount already credited"]
+    assert by_id["h05"]["answer_anchors"] == ["NR2", "goods/service already provided"]
 
 
 def test_h34_uses_the_source_verified_wording(queries):
@@ -214,11 +242,21 @@ def test_h34_uses_the_source_verified_wording(queries):
     ]
 
 
-def test_unresolved_source_strings_are_recorded_not_guessed(meta):
-    """Rows still on the rulebook gloss are named, so nobody infers them by symmetry later."""
-    pending = meta["pending_source_strings"]
-    assert pending, "if every row were verified this list would be gone, not empty"
-    assert any("NA2" in item for item in pending)
+def test_source_verification_is_recorded_and_nothing_is_left_pending(meta):
+    """v1.2.2 finished the verbatim pass, so the pending list is gone rather than emptied."""
+    assert "pending_source_strings" not in meta, "an empty list would be a rotting placeholder"
+    assert "verbatim" in meta["source_verification"]
+    assert "ND1/ND2 penalty" in meta["source_verification"], "the one remaining gloss is named"
+
+
+def test_h09_is_marked_as_prose_not_a_table_row(queries):
+    """It anchors Annexure 1 prose, so it must not be read as a verbatim-row hit."""
+    h09 = next(q for q in queries["queries"] if q["id"] == "h09")
+    assert h09["anchor_type"] == "paraphrase"
+    assert h09["answer_anchors"] == [
+        "otherwise the adjustment window will be closed on deemed acceptance"
+    ]
+    assert len(h09["target_doc_ids"]) == 4, "the prose recurs across the OC 206 family"
 
 
 def test_every_added_query_has_a_recorded_hash(meta, queries):
@@ -226,9 +264,16 @@ def test_every_added_query_has_a_recorded_hash(meta, queries):
     recorded = v12["added_query_hashes"]
     added = [q for q in queries["queries"] if q["id"] not in CARRIED_OVER]
     assert len(added) == len(recorded) == 26
+    later = {
+        qid
+        for entry in meta["changelog"]
+        if entry["version"] not in ("retrieval-v1.1", "retrieval-v1.2")
+        for qid in entry.get("queries_amended", [])
+    }
     for query in added:
-        # h34's anchor was corrected in v1.2.1, so its v1.2 hash is deliberately stale.
-        if query["id"] == "h34":
+        # A query amended after v1.2 has a deliberately stale v1.2 hash; the amending entry
+        # records its own before/after pair.
+        if query["id"] in later:
             continue
         assert query_fingerprint(query) == recorded[query["id"]], query["id"]
 

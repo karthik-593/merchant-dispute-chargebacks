@@ -66,11 +66,28 @@ on_breach:
 rgnb_responses:
   source: "OC 184B"
   note: "No response within TAT means deemed acceptance and the refund is processed."
+
+  # Verbatim prose from OC 184B Annexure 1. `note` above stays a gloss for reading; these are what
+  # the circular says, and they are what the curated record renders and queries anchor on.
+  source_note: "otherwise the adjustment window will be closed on deemed acceptance"
+  source_trigger: "when URCS declines the normal chargeback with CD1 & CD2 reason code"
+
+  # Transcription rules applied to the source column, recorded rather than applied silently.
+  transcription_rules:
+    - rule: "case normalised P2m -> P2M"
+      applies_to: ["ND2"]
+      reason: "The source scan renders ND2's transaction type with a lowercase m ('P2m'). Every
+               other row in the same column reads P2M, and P2M is the sub-type identifier used
+               throughout the rulebook, so this is a rendering artefact of the scan rather than a
+               distinct value. Normalised for consistency and logged here; not silent."
+      source: "OC 184B Annexure, Reason code Description column, read visually from the page 3
+               table image (the rotated table OCR destroyed)"
   rows:
     - flag: RGNB
       code: NB1
       txn: "P2P U3"
       meaning: "Valid P2P chargeback (not a negative chargeback)"
+      source_text: "It is valid P2P chargeback, not a negative chargeback"
       responder: "Remitting/Issuing bank raises"
       tat: null
       penalty: null
@@ -78,6 +95,7 @@ rgnb_responses:
       code: NB2
       txn: "P2M U2"
       meaning: "Valid P2M chargeback"
+      source_text: "It is valid P2M chargeback, not a negative chargeback"
       responder: "Remitting/Issuing bank raises"
       tat: null
       penalty: null
@@ -89,13 +107,16 @@ rgnb_responses:
       responder: "Beneficiary/Acquiring"
       tat: "3 calendar days"
       penalty: "mandatory"
+      source_penalty: "Yes (Mandatory)"
     - flag: BGNA
       code: NA2
       txn: "P2M U2"
       meaning: "Beneficiary accepts"
+      source_text: "Accepting P2M chargeback"
       responder: "Beneficiary/Acquiring"
       tat: "15 calendar days"
       penalty: "bank's choice"
+      source_penalty: "Yes/No (As chosen by Bank)"
     - flag: BGNR
       code: NR1
       txn: "P2P U3"
@@ -108,6 +129,7 @@ rgnb_responses:
       code: NR2
       txn: "P2M U2"
       meaning: "Beneficiary rejects - goods/service already provided"
+      source_text: "Rejecting P2M chargeback, goods/service already provided to the customer"
       responder: "Beneficiary/Acquiring"
       tat: "15 calendar days"
       penalty: null
@@ -115,6 +137,7 @@ rgnb_responses:
       code: NR3
       txn: "P2M U2"
       meaning: "Beneficiary rejects - refund already processed"
+      source_text: "Refund already processed"
       responder: "Beneficiary/Acquiring"
       tat: "15 calendar days"
       penalty: null
@@ -122,6 +145,7 @@ rgnb_responses:
       code: ND1
       txn: "P2P U3"
       meaning: "Deemed acceptance (no response)"
+      source_text: "Deemed acceptance of P2P Generic good faith chargeback"
       responder: "URCS"
       tat: "3 calendar days"
       penalty: "mandatory"
@@ -129,6 +153,7 @@ rgnb_responses:
       code: ND2
       txn: "P2M U2"
       meaning: "Deemed acceptance (no response)"
+      source_text: "Deemed acceptance of P2M Generic good faith chargeback"
       responder: "URCS"
       tat: "15 calendar days"
       penalty: "mandatory"

@@ -8,7 +8,7 @@
 # change to how a curated record is rendered. Re-running OCR that reproduces the same bytes does
 # not bump it.
 
-version: "corpus-v1.2"
+version: "corpus-v1.3"
 chunker_note: "corpus-v1.2 is also the first corpus scored under the corrected structure_aware
                merge floor - see the corpus-v1.2b entry. The corpus TEXT did not change; the
                chunker did, and the two are recorded together because a retrieval number depends
@@ -88,3 +88,21 @@ history:
              fixed the fusion and exposed the opposite limit: a ten-token row carries too little
              text for a bi-encoder to separate it from its neighbours. Direct evidence for the
              parent-expansion question in the Stage 3 diagnosis."
+
+  - version: "corpus-v1.3"
+    date: "2026-09-09"
+    documents: 36
+    change: "The OC 184B RGNB curated record now renders VERBATIM source wording for all nine
+             rows, the verbatim NA1/NA2 penalty cells, and the Annexure 1 trigger and
+             deemed-acceptance prose - replacing the rulebook glosses it had been rendering."
+    why: "The rulebook gloss is fine for prose but wrong in a corpus record: a chunk is scored on
+          what the circular actually says, and an anchor keyed on our restatement scores a string
+          the source does not contain. The gloss stays in caps.yaml as `meaning`; `source_text`
+          carries the quoted cell and the record renders that."
+    transcription_rule: "ND2's source cell reads 'P2m'. Normalised to 'P2M' and logged in
+                         caps.yaml under rgnb_responses.transcription_rules - every other row in
+                         the column reads P2M and P2M is the sub-type identifier used throughout
+                         the rulebook, so this is a scan rendering artefact, not a distinct value.
+                         Logged, not applied silently."
+    still_glossed: "ND1/ND2 penalty cells. No query anchors them and they were not inferred from
+                    NA1's verbatim 'Yes (Mandatory)'."

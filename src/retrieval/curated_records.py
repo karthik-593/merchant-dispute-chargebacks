@@ -179,8 +179,8 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
     lines = [
         "OC 184B - RGNB reason codes, responder and response TAT",
         "",
-        "The remitter good-faith negative chargeback path, taken when a genuine claim is blocked",
-        "by the CD1 or CD2 chargeback cap. Front-end only, no NPCI whitelisting.",
+        "The remitter good-faith negative chargeback path, raised",
+        f"{rgnb['source_trigger']}. Front-end only, no NPCI whitelisting.",
         "",
     ]
     for row in rgnb["rows"]:
@@ -191,6 +191,8 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
         # instead of assuming every line is quoted from the circular.
         verbatim = row.get("source_text")
         meaning = verbatim or f"{row['meaning']}  [rulebook gloss - source wording not verified]"
+        if row.get("source_penalty"):
+            penalty = f" (penalty {row['source_penalty']})"
         lines += [
             f"Flag {row['flag']} / Code {row['code']} - {row['txn']}",
             f"  Meaning  : {meaning}",
@@ -198,7 +200,16 @@ def build_oc_184b_rgnb_table() -> DocumentRecord:
             f"  Response TAT: {tat}{penalty}",
             "",
         ]
-    lines += [f"{rgnb['note']}", f"Source: {rgnb['source']}"]
+    lines.append(
+        "Beneficiary bank has to accept or represent RGNB within the TAT, "
+        f"{rgnb['source_note']}."
+    )
+    for rule in rgnb.get("transcription_rules", []):
+        lines.append(
+            f"Transcription rule: {rule['rule']} ({', '.join(rule['applies_to'])}) - "
+            f"{' '.join(rule['reason'].split())}"
+        )
+    lines.append(f"Source: {rgnb['source']}")
 
     return _wrap(
         doc_id=OC_184B_DOC_ID,
