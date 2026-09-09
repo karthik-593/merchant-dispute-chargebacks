@@ -295,3 +295,58 @@ def test_the_grid_runs_end_to_end_with_provenance_intact(corpus, queries):
         assert cell.query_latency_ms > 0.0
         assert 0.0 <= cell.rule_hit_at(5) <= cell.recall_at(5) <= 1.0
     assert grid.cluster(), "there is always at least one cell within a margin of the best"
+
+
+# --- first-stage diagnosis (M7 Stage 3) --------------------------------------------------------
+#
+# The verdict rule decides which fix gets built, so it is worth pinning: DEPTH buys a deeper
+# K_retrieve, EMBEDDING buys a different encoder, CHUNK buys parent-expansion. Confusing them
+# spends effort on the wrong layer.
+
+
+def _row(**ranks):
+    from src.evaluation.eval_first_stage import RowResult
+
+    return RowResult(query_id="x", topic="t", anchors=["a"], ranks=ranks)
+
+
+def test_a_row_the_first_stage_already_finds_is_not_a_problem():
+    assert _row(bge=1, e5=9, mini=40).verdict() == "FOUND"
+    assert _row(bge=5, e5=5, mini=5).verdict() == "FOUND"
+
+
+def test_one_encoder_rescuing_a_row_is_an_embedding_problem():
+    """Signal exists; the wrong encoder is being asked. That is a swap, not depth or chunking."""
+    assert _row(bge=90, e5=200, mini=None).verdict() == "EMBEDDING"
+    assert _row(bge=10, e5=60, mini=90).verdict() == "EMBEDDING"
+
+
+def test_all_three_agreeing_but_below_the_cut_is_a_depth_problem():
+    assert _row(bge=30, e5=40, mini=35).verdict() == "DEPTH"
+
+
+def test_all_three_burying_a_row_is_a_chunk_problem():
+    """Nothing to match. No depth and no reranker invents signal that is not there."""
+    assert _row(bge=None, e5=None, mini=None).verdict() == "CHUNK"
+    assert _row(bge=126, e5=157, mini=129).verdict() == "CHUNK"
+
+
+def test_unreachable_counts_what_a_given_depth_cannot_reach():
+    row = _row(bge=30, e5=None, mini=10)
+    assert row.unreachable_at(25) == {"bge": True, "e5": True, "mini": False}
+    assert row.unreachable_at(50) == {"bge": False, "e5": True, "mini": False}
+
+
+def test_the_verified_hard_set_is_the_source_verified_eleven():
+    from src.evaluation.eval_first_stage import VERIFIED_HARD_SET
+
+    assert set(VERIFIED_HARD_SET) == {
+        "h01", "h02", "h03", "h04", "h05", "h09", "h10", "h32", "h34", "h35", "h36"
+    }
+
+
+def test_the_diagnosis_runs_on_structure_aware_only():
+    """The other two chunkers cannot measure these queries - the B3 ruler defect."""
+    from src.evaluation.eval_first_stage import FEEDER
+
+    assert FEEDER == "structure_aware"
