@@ -65,6 +65,35 @@ queries exist to test. The fix is behaviourally necessary and the retrieval cost
 recorded rather than netted off. A remedy exists — carry the band as record-level metadata rather
 than a per-row line — and is **not applied**, pending review.
 
+### Stage 1 follow-up (corpus-v1.2): the band moved, and the fix was only half a fix
+
+The verdict band moved from per-row text to record-level metadata — carried on `source_section`,
+stated once in the header. Per-row text is now the code and its reason string only; the per-row
+`Source:` line and reconciliation marker went with it, being equally uniform. The categorisation
+is untouched: `nrp_verdict_for_codes` / `nrp_verdict_against_codes` and the NVB guard test all
+stand. The reject record halved, 7,016 → **3,511 chars**.
+
+**`structure_aware / dense / bge` rule@5: 0.620 → 0.640. Pre-band it was 0.700.** Two of the four
+regressed queries recovered (**h15, h32**); two did not (**h22, q25**), and **h30 newly
+regressed**. Net against pre-band: three regressions, no new hits.
+
+**Why it only half worked, and it is worth knowing.** Stripping the uniform boilerplate made each
+row so short that it fell under `structure_aware`'s 24-token merge floor. The reject record now
+chunks into **13 chunks, every one carrying 2–3 codes** — against 20 chunks pre-band and 26 with
+it. So the fix removed one source of near-duplicate confusion and created another: instead of 26
+rows sharing an identical verdict line, adjacent near-duplicate rows now share a *chunk*. h30
+(1157) regressed for exactly this reason — it sits in a chunk with 1156.
+
+h22 is a separate cause and should not be attributed here: it anchors the OC 208 §C evidence map,
+not the reject taxonomy, and its regression traces to the RC 1085 verbatim change (Fix 4) altering
+that record's text.
+
+**The generalisation stands and is worth more than the number.** Metadata rendered into
+retrievable text is a retrieval hazard even when correct — the same defect class as the B3
+table-vs-row artifact and the `RC_1064` tokenizer bug. But so is text that is *too* terse for the
+chunker's floor. Not fixed here: the remedy is a chunker parameter (`STRUCTURE_MIN_TOKENS`), which
+would move every M6 number, and that is a separate decision.
+
 ### The B3 ruler defect (unchanged)
 
 `whole_document` and `sentence` still inflate on near-duplicate queries: the entire 9-row RGNB

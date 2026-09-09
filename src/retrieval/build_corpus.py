@@ -27,7 +27,7 @@ from src.retrieval.corpus_ingest import (
     write_corpus,
 )
 from src.retrieval.corpus_validation import CorpusReport, validate_corpus, validate_or_raise
-from src.retrieval.curated_records import build_curated_records
+from src.retrieval.curated_records import build_curated_records, load_corpus_version
 
 log = get_logger(__name__)
 
@@ -45,8 +45,16 @@ def build_card(records: list[DocumentRecord], report: CorpusReport, ocr_engine: 
         1 for record in records for page in record.pages if page.extraction_method == EXTRACTION_OCR
     )
 
+    corpus_version = load_corpus_version()
+    latest = corpus_version["history"][-1]
     lines = [
         "# Corpus card — NPCI/RBI circulars",
+        "",
+        f"**Corpus version: `{corpus_version['version']}`** — {' '.join(latest['change'].split())}",
+        "",
+        "A retrieval number is only comparable to another taken over the same corpus, so the "
+        "corpus carries a version the way the query set does. History and the reason for each "
+        "bump are in `configs/corpus/corpus_version.yaml`.",
         "",
         "## What this is",
         "",

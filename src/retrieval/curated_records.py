@@ -55,6 +55,16 @@ OC_184B_DOC_ID = "oc_184b_rgnb_response_table_curated"
 OC_208A_DOC_ID = "oc_208a_annexure_a_reject_taxonomy_curated"
 
 RECONCILIATION_FILE = "oc_208a_reconciliation.yaml"
+CORPUS_VERSION_FILE = "corpus_version.yaml"
+
+
+def load_corpus_version() -> dict:
+    """Read the corpus version record."""
+    import yaml
+
+    path = project_path("configs") / "corpus" / CORPUS_VERSION_FILE
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
 
 
 def load_reconciliation() -> dict:
@@ -227,28 +237,39 @@ def build_oc_208a_reject_taxonomy() -> DocumentRecord:
         "",
     ]
 
-    for entry in taxonomy["nrp_verdict_for_codes"]:
-        code = entry["code"]
-        lines.append(f"Reason code {code} - {' '.join(entry['description'].split())}")
-        lines.append("  Verdict: FOR the beneficiary (NVB) - the representment succeeded.")
-        lines += [f"  Source: {entry['source']}", ""]
+    # Per-row text is the code and its reason string, and nothing else.
+    #
+    # The verdict band used to be rendered on every row. It is correct - it is the categorisation
+    # the verifier depends on - but it is identical across all 26 NVR codes, so as retrievable
+    # text it diluted the only thing that separates those rows. It made near-duplicate rows more
+    # similar, which is the opposite of what a near-duplicate query measures. The band is stated
+    # once in the header above and carried on the record's source_section; the same reasoning
+    # retires the per-row Source line and the reconciliation marker, which were equally uniform.
+    # Provenance is unaffected: doc_id, source_section, source_path and page ride on every chunk
+    # as metadata, which is where metadata belongs.
+    notes = [
+        f"{e['code']}: {' '.join(e['transcription_note'].split())}"
+        for e in taxonomy["nrp_verdict_against_codes"]
+        if e.get("transcription_note")
+    ]
+    if notes:
+        lines += ["Transcription notes: " + "; ".join(notes), ""]
+    lines += [f"OCR-corrected codes: {', '.join(sorted(damaged))}.", ""]
 
-    for entry in taxonomy["nrp_verdict_against_codes"]:
-        code = entry["code"]
-        lines.append(f"Reason code {code} - {' '.join(entry['description'].split())}")
-        if entry.get("transcription_note"):
-            lines.append(f"  Transcription note: {' '.join(entry['transcription_note'].split())}")
-        lines.append("  Verdict: AGAINST (NVR) - an invalid or defective submission.")
-        if code in damaged:
-            lines.append("  OCR reconciliation: corrected against the rulebook; see the log.")
-        lines += [f"  Source: {entry['source']}", ""]
+    for entry in taxonomy["nrp_verdict_for_codes"] + taxonomy["nrp_verdict_against_codes"]:
+        lines.append(f"Reason code {entry['code']} - {' '.join(entry['description'].split())}")
+        lines.append("")
 
     lines.append(f"Source: {meta['primary_source']}")
 
     return _wrap(
         doc_id=OC_208A_DOC_ID,
         source=_find_source(OC_208A_FILENAME_PREFIX),
-        section="Annexure A (NRP verdict reason codes)",
+        section=(
+            "Annexure A (NRP verdict reason codes; NVB 1126-1131 verdict-FOR the beneficiary, "
+            "NVR 1132-1157 verdict-AGAINST - the band is record-level metadata, never per-row "
+            "text)"
+        ),
         title="OC 208A Annexure A - NRP verdict reason codes (curated, OCR-reconciled)",
         body="\n".join(lines),
     )

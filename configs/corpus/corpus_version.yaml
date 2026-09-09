@@ -1,0 +1,54 @@
+# corpus_version.yaml — the version of the ingested circulars corpus, and why each one moved.
+#
+# The corpus is a scoring input, not just data on disk: a retrieval number is only comparable to
+# another if both were taken over the same corpus. Query-set versions were already tracked this
+# way; this closes the other half, so a result can name both.
+#
+# A version bumps when the TEXT a retriever sees changes — new records, corrected records, or a
+# change to how a curated record is rendered. Re-running OCR that reproduces the same bytes does
+# not bump it.
+
+version: "corpus-v1.2"
+
+history:
+  - version: "corpus-v1.0"
+    date: "2026-09-07"
+    documents: 35
+    change: "Baseline. 33 extracted circulars plus two curated tables (OC 208 SecC evidence map,
+             OC 184B RGNB response table) rebuilt from the rulebook because OCR flattens a table
+             into running text."
+
+  - version: "corpus-v1.1"
+    date: "2026-09-08"
+    documents: 36
+    change: "OC 208A Annexure A reconciled against the verified rulebook and added as a third
+             curated record superseding the damaged scan - 15 of its 28 reject codes were wrong
+             or missing. Every correction itemised in oc_208a_reconciliation.yaml. The scan is
+             kept, superseded rather than overwritten."
+
+  - version: "corpus-v1.2"
+    date: "2026-09-09"
+    documents: 36
+    change: "Verdict band moved from per-row text to record-level metadata."
+    why: "The NVB/NVR band was rendered as a line on every reject row. It is correct - it is the
+          categorisation the verifier depends on - but it is identical across all 26 NVR codes,
+          so as retrievable text it diluted the one thing that distinguishes those rows: their
+          reason string. It made near-duplicate rows MORE similar, which is the opposite of what
+          the near-duplicate queries measure, and it cost four queries (h15, h22, h32, q25) on
+          structure_aware - the exact cell the first-stage diagnosis targets.
+
+          Same defect class as two earlier ones: the B3 table-vs-row artifact, where a chunker
+          scores a hit by retrieving a whole table without isolating the row, and the RC_1064
+          tokenizer bug, where an identifier the corpus wrote as RC_1064 could never meet a
+          question that said 'RC 1064'. In all three, something correct at one layer became a
+          retrieval hazard at another.
+
+          METADATA RENDERED INTO RETRIEVABLE TEXT IS A RETRIEVAL HAZARD EVEN WHEN IT IS CORRECT.
+          The categorisation itself is untouched: nrp_verdict_for_codes and
+          nrp_verdict_against_codes are unchanged, the guard test still holds, and the band is
+          now carried on the record's source_section and stated once in its header."
+    also: "Per-row text is now the code and its reason string only. The per-row Source line, the
+           OCR-reconciliation marker and the transcription note moved to the record header for
+           the same reason - repeated boilerplate is repeated boilerplate whether or not it is
+           the band. Provenance is not lost: every chunk still carries doc_id, source_section,
+           source_path and page as metadata, which is where it belongs."
