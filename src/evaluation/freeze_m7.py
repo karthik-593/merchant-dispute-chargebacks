@@ -32,6 +32,40 @@ FROZEN_KEYS = (
     "RERANKER_VERSION",
 )
 
+# The versioned inputs a freeze rests on, hashed at run time so the run records what it ACTUALLY
+# ran on rather than the label it was handed.
+#
+# The original freeze logged `corpus_version: "corpus-v1.4"` straight out of versions.yaml and
+# nothing else, which made it self-certifying: the run asserted the label the config asserted,
+# and neither was checkable against any bytes. The DVC pointer was meanwhile three versions
+# stale, and the incident could only be adjudicated afterwards by re-running the frozen cell on
+# each candidate corpus until one reproduced rule_hit@5 = 0.640. A hash logged here would have
+# answered it in one query. See experiments/EXP-CORPUS-001.md.
+HASHED_INPUTS = {
+    "corpus": "data/corpus/circulars.jsonl",
+    "query_set": "data/corpus/retrieval_queries.yaml",
+    "m8_eval_set": "data/eval/m8_query_rewrite_eval.yaml",
+    "rulebook_evidence": "configs/rulebook/reason_code_evidence.yaml",
+    "corpus_version_record": "configs/corpus/corpus_version.yaml",
+    "versions_record": "configs/versions.yaml",
+}
+
+
+def input_hashes() -> dict[str, str]:
+    """Content hash of every versioned input this freeze rests on, taken now.
+
+    A missing input is recorded as such rather than skipped: "the corpus was not on disk when
+    this freeze ran" is itself a fact worth having in the run.
+    """
+    from src.config import PROJECT_ROOT
+    from src.evaluation.version_integrity import md5_of
+
+    hashes = {}
+    for name, relative in HASHED_INPUTS.items():
+        path = PROJECT_ROOT / relative
+        hashes[name] = md5_of(path) if path.is_file() else "MISSING"
+    return hashes
+
 # The lever comparison the freeze rests on. Kept beside the freeze rather than only in prose, so
 # the justification is queryable: every alternative, what it cost, and what it recovered.
 SELECTION_TABLE = (
@@ -78,6 +112,13 @@ def format_report(versions: dict[str, Any], eval_set: dict[str, Any]) -> str:
         value = entry["value"] if entry["value"] is not None else "NONE (rejected)"
         lines.append(f"  {key:20} {value}")
         lines.append(f"  {'':20} selected by: {entry['selected_by']}")
+
+    # What the run actually read, by content. A freeze that records only version labels cannot
+    # later be checked against the artifacts it claims, which is the defect EXP-CORPUS-001 traces.
+    lines += ["", "", "=== INPUTS, BY CONTENT (hashed at run time) ===", ""]
+    for name, digest in input_hashes().items():
+        lines.append(f"  {name:24} {digest}")
+
     lines += ["", "", "=== SELECTION: every lever tested and priced ===", ""]
     lines.append(f"  {'lever':12} {'configuration':38} outcome")
     lines.append("  " + "-" * 96)
@@ -127,6 +168,10 @@ def log_to_mlflow(versions: dict[str, Any], eval_set: dict[str, Any]) -> str | N
                 "query_set": meta["query_set_version"],
                 "scoring_metric": meta["scoring_metric"],
             }
+            # The bytes, not just the labels. This is the line whose absence made the corpus
+            # pointer drift unadjudicable from MLflow.
+            for name, digest in input_hashes().items():
+                params[f"input_md5__{name}"] = digest
             for key in FROZEN_KEYS:
                 params[key] = str(versions[key]["value"])
                 params[f"{key}__selected_by"] = versions[key]["selected_by"]

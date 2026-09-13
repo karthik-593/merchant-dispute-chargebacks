@@ -11,6 +11,16 @@ meta:
   milestone: M7
   frozen_on: "2026-09-09"
   corpus_version: "corpus-v1.4"
+  # The BYTES behind that label. A version label cannot be checked against anything, which is how
+  # the DVC pointer sat three versions stale for four days while this file said v1.4 and nothing
+  # contradicted it. The hash is owned by configs/corpus/corpus_version.yaml, which owns corpus
+  # identity; it is restated here so a reader of the freeze sees what it ran on, and
+  # tests/test_corpus_version_integrity.py asserts the two records and the .dvc pointer agree.
+  corpus_content_md5: "34a085ab04488672b9d8d79a582655ba"
+  corpus_content_source: "configs/corpus/corpus_version.yaml, entry corpus-v1.4"
+  corpus_content_provenance: "Reconstructed post-hoc by metric reproduction, not logged at freeze
+                              time. See that entry's content_md5_provenance and
+                              experiments/EXP-CORPUS-001.md before treating it as a live capture."
   query_set_version: "retrieval-v1.2.2"
   scoring_metric: "rule-hit-rate@5 on the 50 discriminators; guards excluded"
   corpus_note: "corpus-v1.4, NOT v1.2. v1.2 moved the verdict band out of per-row text; v1.2b

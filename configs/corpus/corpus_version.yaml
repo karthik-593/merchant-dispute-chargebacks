@@ -110,6 +110,17 @@ history:
   - version: "corpus-v1.4"
     date: "2026-09-09"
     documents: 36
+    content_md5: "34a085ab04488672b9d8d79a582655ba"
+    content_bytes: 551876
+    content_md5_provenance: "RECONSTRUCTED POST-HOC, NOT LOGGED AT FREEZE TIME. No corpus hash was
+                             ever recorded in MLflow - freeze_m7.py logged the version LABEL from
+                             versions.yaml and so self-certified it. H_true was established by
+                             METRIC REPRODUCTION: the frozen rule_hit@5 = 0.640 reproduces on
+                             34a085ab and NOT on the stale pointer a4ed9bf, which gives 0.600. It
+                             is corroborated by this entry's own content criteria - 50 row chunks,
+                             0 contaminated, ND2 at 27 tokens - which only 34a085ab satisfies.
+                             The hash's authority traces to the metric reproduction, not to a live
+                             capture. See experiments/EXP-CORPUS-001.md."
     change: "Metadata swept out of ROW text in all three curated records. 14 contaminated row
              chunks found and cleared: 12 evidence-map rows each carrying an identical per-row
              `Source:` line, the reject taxonomy's last row (1157) carrying the record's trailing
